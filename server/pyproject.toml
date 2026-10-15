@@ -31,6 +31,10 @@ dependencies = [
     "requests>=2.32",
 ]
 
+# 命令行入口：uv run x-BeiChen
+[project.scripts]
+x-BeiChen = "src.cli:main"
+
 [project.optional-dependencies]
 dev = [
     "ruff>=0.5",

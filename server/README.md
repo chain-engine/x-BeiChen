@@ -78,13 +78,24 @@ cp .env.example .env
 
 ### 5. 服务启动
 
-**方式一：本地开发热重载**
+**方式一：一键启动（推荐，支持热重载）**
+
+```bash
+uv run x-BeiChen                # 默认启动：开发环境自动开启热重载，监听 6666
+uv run x-BeiChen --reload       # 显式开启热重载（修改代码自动重启）
+uv run x-BeiChen --no-reload    # 显式关闭热重载（生产环境）
+uv run x-BeiChen --port 6666    # 自定义监听端口
+```
+
+> 热重载默认行为跟随运行环境：`development` 且 `debug=true` 时自动开启；显式传 `--reload` / `--no-reload` 可覆盖。
+
+**方式二：uvicorn 直接启动（本地热重载）**
 
 ```bash
 uv run uvicorn src.main:app --reload --port 6666
 ```
 
-**方式二：Docker 容器部署**
+**方式三：Docker 容器部署**
 
 ```bash
 docker build -t x-beichen-server .

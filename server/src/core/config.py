@@ -117,11 +117,8 @@ class RedisConfig:
 
 @dataclass
 class AILLMConfig:
-    """大模型配置（LangChain ChatOpenAI 兼容接口）。
-    provider: "openai_compat" —— OpenAI 兼容协议，可对接豆包方舟 / DeepSeek / 本地 vLLM 等。
-    """
+    """大模型配置（LangChain ChatOpenAI 兼容接口）。"""
 
-    provider: str = "openai_compat"
     base_url: str = "https://api.xiaomimimo.com/v1"
     api_key: str = ""  # 敏感信息，仅通过环境变量 / .env 注入
     model: str = "mimo-v2.6-pro"
@@ -224,7 +221,6 @@ class Settings:
             "ai": {
                 "enabled": True,
                 "llm": {
-                    "provider": "openai_compat",
                     "base_url": "https://api.xiaomimimo.com/v1",
                     "api_key": "",
                     "model": "mimo-v2.6-pro",
@@ -325,7 +321,6 @@ class Settings:
         ai = config.setdefault("ai", {})
         ai_llm = ai.setdefault("llm", {})
         for env_key, key in {
-            "AI_LLM_PROVIDER": "provider",
             "AI_LLM_BASE_URL": "base_url",
             "AI_LLM_API_KEY": "api_key",
             "AI_LLM_MODEL": "model",

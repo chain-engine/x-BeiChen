@@ -88,7 +88,7 @@ def get_llm_provider() -> LLMProvider:
     llm_config: AILLMConfig = settings.ai.llm
     if settings.ai.enabled and llm_config.api_key:
         provider: LLMProvider = LangChainLLMProvider(llm_config)
-        logger.info(f"LLM provider 初始化：{llm_config.provider} / {llm_config.model}")
+        logger.info(f"LLM 初始化：{llm_config.base_url} / {llm_config.model}")
     else:
         provider = MockLLMProvider()
         logger.warning("未配置 AI_LLM_API_KEY，LLM 使用 Mock 实现（仅骨架阶段）")

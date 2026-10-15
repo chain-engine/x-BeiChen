@@ -54,7 +54,6 @@ redis:
 ai:
   enabled: true
   llm:
-    provider: openai_compat
     base_url: https://api.xiaomimimo.com/v1
     api_key: ""            # 生产环境用环境变量 AI_LLM_API_KEY 注入，勿写入配置
     model: mimo-v2.6-pro

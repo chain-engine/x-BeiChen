@@ -77,13 +77,24 @@ Key parameters:
 
 ### 5. Start the Service
 
-**Option A: Local dev with hot reload**
+**Option A: One-command start (recommended, hot reload)**
+
+```bash
+uv run x-BeiChen                # Default: hot reload auto-enabled in dev, listens on 6666
+uv run x-BeiChen --reload       # Explicitly enable hot reload (auto-restart on code change)
+uv run x-BeiChen --no-reload    # Explicitly disable hot reload (production)
+uv run x-BeiChen --port 6666    # Custom listen port
+```
+
+> Hot reload follows the environment by default: enabled when `development` and `debug=true`; override with explicit `--reload` / `--no-reload`.
+
+**Option B: Direct uvicorn (local hot reload)**
 
 ```bash
 uv run uvicorn src.main:app --reload --port 6666
 ```
 
-**Option B: Docker deployment**
+**Option C: Docker deployment**
 
 ```bash
 docker build -t x-beichen-server .
