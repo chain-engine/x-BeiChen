@@ -14,10 +14,10 @@
 ![Docker](https://img.shields.io/badge/Docker-24.0%2B-2496ED?logo=docker&logoColor=white)
 ![uv](https://img.shields.io/badge/uv-0.5%2B-6E40C9)
 
-![Stars](https://img.shields.io/github/stars/yeyushilai/x-BeiChen?label=Stars)
-![Forks](https://img.shields.io/github/forks/yeyushilai/x-BeiChen?label=Forks)
-![License](https://img.shields.io/github/license/yeyushilai/x-BeiChen?label=License)
-![月提交数](https://img.shields.io/github/commit-activity/m/yeyushilai/x-BeiChen?label=Commits)
+![Stars](https://img.shields.io/github/stars/chain-engine/x-BeiChen?label=Stars)
+![Forks](https://img.shields.io/github/forks/chain-engine/x-BeiChen?label=Forks)
+![License](https://img.shields.io/github/license/chain-engine/x-BeiChen?label=License)
+![月提交数](https://img.shields.io/github/commit-activity/m/chain-engine/x-BeiChen?label=Commits)
 
 ## 💡 项目介绍
 
@@ -43,7 +43,7 @@
 ### 2. 项目代码克隆
 
 ```bash
-git clone https://github.com/yeyushilai/x-BeiChen.git
+git clone https://github.com/chain-engine/x-BeiChen.git
 cd x-BeiChen/server
 ```
 
@@ -364,4 +364,4 @@ flowchart TD
 - 邮箱：john.young@foxmail.com
 - Gitee：<https://gitee.com/yeyushilai>
 - GitHub：<https://github.com/yeyushilai>
-- 项目地址：待补充
+- 项目地址：[https://github.com/chain-engine/x-BeiChen](https://github.com/chain-engine/x-BeiChen)
