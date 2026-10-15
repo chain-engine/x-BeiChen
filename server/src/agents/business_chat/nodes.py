@@ -18,8 +18,8 @@ from typing import Any
 from langgraph.types import interrupt
 
 from src.agents.business_chat.state import ChatState
-from src.agents.tools import retrieve
-from src.constants import EventType, TaskStatus
+from src.agents.tools.registry import tool_registry
+from src.constants import EventType, TaskStatus, ToolPermissionLevel
 from src.core.logger import logger
 
 
@@ -44,7 +44,12 @@ def retrieve_node(state: ChatState) -> dict[str, Any]:
     TODO(业务接入): 知识库向量化（Milvus）+ embedding 检索，替换 mock。
     """
     query = state.get("message") or ""
-    knowledge = retrieve(query, top_k=3)
+    knowledge = tool_registry.invoke(
+        "rag.retrieve",
+        ToolPermissionLevel.READ_ONLY,
+        query=query,
+        top_k=3,
+    )
     logger.info(f"[Chat] retrieve: {len(knowledge)} 条知识")
     return {"knowledge": knowledge}
 

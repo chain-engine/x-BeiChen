@@ -123,7 +123,7 @@ class AgentRuntime:
             #   3) 把人工接管上下文写入 result（可序列化，供人工面板展示）
             if "__interrupt__" in final_state:
                 interrupts = final_state.pop("__interrupt__")
-                final_state["status"] = TaskStatus.WAITING_HUMAN
+                final_state["status"] = TaskStatus.WAITING_HUMAN.mark
                 if final_state.get("result") is None:
                     first = interrupts[0] if isinstance(interrupts, (list, tuple)) else interrupts
                     interrupt_ctx = getattr(first, "value", None) or {}
@@ -136,7 +136,7 @@ class AgentRuntime:
             logger.exception(f"[Runtime] task failed thread={thread}: {exc}")
             return {
                 **initial_state,
-                "status": TaskStatus.FAILED,
+                "status": TaskStatus.FAILED.mark,
                 "error": str(exc),
             }
 
@@ -162,7 +162,7 @@ class AgentRuntime:
             return final_state
         except Exception as exc:
             logger.exception(f"[Runtime] resume failed thread={thread_id}: {exc}")
-            return {"status": TaskStatus.FAILED, "error": str(exc)}
+            return {"status": TaskStatus.FAILED.mark, "error": str(exc)}
 
     def get_run_status(self) -> dict[str, str]:
         """运行状态快照（管理后台可观测面板用）。"""

@@ -10,6 +10,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -17,6 +18,7 @@ from sqlalchemy.orm import Session
 
 from src.agents.runtime import AgentRuntime, get_agent_runtime
 from src.constants import TaskStatus
+from src.core.config import settings
 from src.core.exceptions import NotFoundException, ValidationException
 from src.core.logger import logger
 from src.models.entities.agent_event import AgentEvent
@@ -68,27 +70,26 @@ class AgentOrchestratorService:
             task_type=task_type,
             payload=payload,
             status=TaskStatus.PENDING,
-            max_retries=10_000,  # 覆盖用：实际值从配置读
+            max_retries=settings.agent.task_max_retries,
             timeout_at=timeout_at
-            or datetime.now(UTC) + timedelta(seconds=300),
-        )
-        from src.core.config import settings
-
-        task.max_retries = settings.agent.task_max_retries
-        task.timeout_at = timeout_at or datetime.now(UTC) + timedelta(
-            seconds=settings.agent.task_timeout_seconds
+            or datetime.now(UTC) + timedelta(seconds=settings.agent.task_timeout_seconds),
         )
         self._task_repo.add(task)
         self._task_repo.commit()
         logger.info(f"[OrchestratorService] 任务已落库：id={task.id} type={task_type}")
 
-        # 3. 派发执行（同步；二期替换为消息队列异步消费）
+        # 3. 派发执行（同步 LangGraph invoke 放线程池，避免阻塞事件循环；
+        #    invoke 内部不触碰请求级 SQLAlchemy session，线程安全）
         thread_id = f"task:{task.id}"
-        final_state = self._runtime.invoke_task(
-            task_type=task_type,
-            payload=payload,
-            thread_id=thread_id,
-            task_id=task.id,
+        loop = asyncio.get_running_loop()
+        final_state = await loop.run_in_executor(
+            None,
+            lambda: self._runtime.invoke_task(
+                task_type=task_type,
+                payload=payload,
+                thread_id=thread_id,
+                task_id=task.id,
+            ),
         )
 
         # 4. 回写执行结果
@@ -136,7 +137,7 @@ class AgentOrchestratorService:
         task.error_message = final_state.get("error")
         task.approval_no = final_state.get("approval_no")
         task.timeout_at = None
-        if final_state.get("status") == TaskStatus.FAILED:
+        if final_state.get("status") == TaskStatus.FAILED.mark:
             task.retry_count += 1
         logger.info(f"[OrchestratorService] 任务结束：id={task.id} status={task.status} assignee={task.assignee_agent}")
 
@@ -176,7 +177,11 @@ class AgentOrchestratorService:
         if not task.thread_id:
             raise ValidationException("任务无线程 ID，无法恢复（可能未执行或已完成）")
         update = {"decision": decision, "remark": remark, "extra": extra or {}}
-        final_state = self._runtime.resume_task(task.thread_id, update)
+        loop = asyncio.get_running_loop()
+        final_state = await loop.run_in_executor(
+            None,
+            lambda: self._runtime.resume_task(task.thread_id, update),
+        )
         self._apply_final_state(task, final_state, task.thread_id)
         await self._persist_and_publish_events(final_state)
         self._task_repo.commit()

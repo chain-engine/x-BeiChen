@@ -15,7 +15,7 @@ from __future__ import annotations
 from typing import Any
 
 from src.agents.monitor.state import MonitorState
-from src.agents.tools import get_campaign_stats, send_alert
+from src.agents.tools.registry import tool_registry
 from src.constants import EventType, TaskStatus, ToolPermissionLevel
 from src.core.logger import logger
 
@@ -29,7 +29,12 @@ def pull_data_node(state: MonitorState) -> dict[str, Any]:
     payload = state.get("payload") or {}
     account_id = payload.get("account_id", "acc_default")
     campaign_id = payload.get("campaign_id")
-    raw = get_campaign_stats(account_id, campaign_id)
+    raw = tool_registry.invoke(
+        "ads.get_campaign_stats",
+        ToolPermissionLevel.READ_ONLY,
+        account_id=account_id,
+        campaign_id=campaign_id,
+    )
     logger.info(f"[Monitor] pull: account={account_id} raw={raw}")
     return {"raw": raw}
 
@@ -74,7 +79,14 @@ def judge_node(state: MonitorState) -> dict[str, Any]:
             "involves_money": True,  # 涉及资金写 → 走审批，Agent 不直接执行
         }
     logger.info(f"[Monitor] judge: anomaly={anomaly} suggestion={suggestion}")
-    return {"anomaly": anomaly, "suggestion": suggestion}
+    # normal / alert 两条分支都在此结束判定并把状态归一化为 success：
+    # normal → END（不经过 alert_node），必须显式回写 status，否则顶层状态
+    # 会停留在 runtime 初始的 running，任务落库后永远显示"执行中"。
+    return {
+        "anomaly": anomaly,
+        "suggestion": suggestion,
+        "status": TaskStatus.SUCCESS.mark,
+    }
 
 
 def alert_node(state: MonitorState) -> dict[str, Any]:
@@ -86,7 +98,9 @@ def alert_node(state: MonitorState) -> dict[str, Any]:
     suggestion = state.get("suggestion") or {}
     events = list(state.get("events") or [])
     # 1. 即时告警（只读工具，Agent 可直接调用）
-    send_alert(
+    tool_registry.invoke(
+        "notification.send_alert",
+        ToolPermissionLevel.READ_ONLY,
         channel="ops",
         title="广告投放异常告警",
         content=suggestion.get("message", "检测到投放异常"),

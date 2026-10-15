@@ -84,12 +84,15 @@ class DatabaseConfig:
 
     @property
     def url(self) -> str:
-        """根据结构化数据库配置生成 SQLAlchemy 连接串。"""
-        if not self.password:
-            return ""
+        """根据结构化数据库配置生成 SQLAlchemy 连接串。
+
+        无密码（本地开发 root 空密码）也生成合法连接串，而不是返回空串——
+        空串会让 MySqlProvider 直接拒绝连接，堵死本地无密码 MySQL 场景。
+        """
+        pwd = quote_plus(self.password) if self.password else ""
+        auth = f"{quote_plus(self.user)}:{pwd}@" if self.user else ""
         return (
-            f"mysql+pymysql://{quote_plus(self.user)}:{quote_plus(self.password)}"
-            f"@{self.host}:{self.port}/{quote_plus(self.database)}"
+            f"mysql+pymysql://{auth}{self.host}:{self.port}/{quote_plus(self.database)}"
         )
 
 
@@ -375,10 +378,14 @@ class Settings:
         if self.is_production:
             if self.server.debug:
                 raise ValueError("DEBUG mode must be disabled in production")
-            if self.database.enabled and not self.database.url:
-                raise ValueError("DATABASE_URL 在生产环境必须配置")
+            # url 在无密码时也会生成合法串，这里改为校验 host/database 是否配齐
+            if self.database.enabled and (not self.database.host or not self.database.database):
+                raise ValueError("生产环境启用数据库时必须配置 DATABASE_HOST / DATABASE_DATABASE")
             if self.redis.enabled and not self.redis.url:
                 raise ValueError("REDIS_URL 在生产环境必须配置")
+            # CORS：* 与 allow_credentials=True 组合会放行任意源带凭证跨域，生产禁止
+            if "*" in self.cors.origins:
+                raise ValueError("生产环境 CORS_ORIGINS 不能为 *，请显式配置允许的域名列表")
 
     # ----------------------------------------------------------
     # 热重载

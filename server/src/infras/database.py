@@ -78,6 +78,7 @@ class MySqlProvider(DatabaseProvider):
         database_url: str,
         pool_size: int = 5,
         max_overflow: int = 10,
+        pool_timeout: int = 30,
         pool_recycle: int = 3600,
         echo: bool = False,
     ) -> None:
@@ -89,6 +90,7 @@ class MySqlProvider(DatabaseProvider):
             database_url,
             pool_size=pool_size,
             max_overflow=max_overflow,
+            pool_timeout=pool_timeout,
             pool_pre_ping=True,
             pool_recycle=pool_recycle,
             echo=echo,
@@ -152,7 +154,10 @@ def get_database_provider() -> DatabaseProvider:
     return MySqlProvider(
         database_url=settings.database.url,
         pool_size=settings.database.pool_size,
-        echo=settings.server.debug,
+        max_overflow=settings.database.max_overflow,
+        pool_timeout=settings.database.pool_timeout,
+        pool_recycle=settings.database.pool_recycle,
+        echo=settings.database.echo,
     )
 
 
