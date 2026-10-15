@@ -17,7 +17,7 @@ Usage:
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from collections.abc import Generator, Iterator
+from collections.abc import Iterator
 from contextlib import contextmanager
 
 from sqlalchemy import Engine, create_engine, inspect, text
@@ -130,7 +130,7 @@ class MySqlProvider(DatabaseProvider):
         """检测数据库连接是否可用。"""
         try:
             with self._engine.connect() as conn:
-                conn.execute(__import__("sqlalchemy").text("SELECT 1"))
+                conn.execute(text("SELECT 1"))
             return True
         except Exception as e:
             logger.warning(f"Database connection check failed: {e}")
@@ -175,34 +175,6 @@ def get_cached_database_provider() -> DatabaseProvider:
 
 
 # ============================================================
-# 启动期进程级互斥锁（MySQL GET_LOCK）
-# ============================================================
-
-
-def acquire_mysql_lock(session: Session, lock_name: str, timeout: int = 60) -> bool:
-    """获取 MySQL 命名锁（GET_LOCK），用于串行化启动期数据初始化。
-
-    背景：gunicorn 多 worker 各自执行 ASGI lifespan，seed / 权限对账 /
-    scope 对账会在多个进程中并发运行，唯一键（uk_perm_code 等）并发
-    插入必然产生 1062 Duplicate entry 竞态。命名锁保证同一时刻只有一个
-    worker 执行初始化，其余 worker 等待或跳过。
-
-    Args:
-        session: 当前数据库会话（锁与连接绑定，必须在同一会话上释放）
-        lock_name: 锁名（如 "BeiChen.seed"）
-        timeout: 等待锁的超时秒数
-
-    Returns:
-        True 表示成功获取锁；False 表示超时未获取（调用方应跳过初始化）
-    """
-    conn = session.connection()
-    acquired = conn.execute(text(f"SELECT GET_LOCK('{lock_name}', {timeout})")).scalar()
-    return bool(acquired)
-
-
-def release_mysql_lock(session: Session, lock_name: str) -> None:
-    """释放 MySQL 命名锁（RELEASE_LOCK），须与 acquire_mysql_lock 成对调用。"""
-    session.connection().execute(text(f"SELECT RELEASE_LOCK('{lock_name}')"))
 
 
 def init_database() -> None:
@@ -226,33 +198,11 @@ def init_database() -> None:
     logger.info(f"MySQL 建表完成（新增：{sorted(missing)}）")
 
 
-def drop_db() -> None:
-    """删除所有 MySQL 数据库表。"""
-    engine = get_cached_database_provider().get_engine()
-    Base.metadata.drop_all(bind=engine)
-    logger.warning("All MySQL tables dropped")
-
-
-def get_db_session() -> Generator[Session, None, None]:
-    """FastAPI 依赖：每个请求一个数据库会话，请求结束自动 commit/rollback/close。"""
-    session = get_cached_database_provider().get_session_factory()()
-    try:
-        yield session
-        session.commit()
-    except Exception:
-        session.rollback()
-        raise
-    finally:
-        session.close()
-
-
 __all__ = [
     "DatabaseProvider",
     "MySqlProvider",
     "Base",
     "get_database_provider",
     "get_cached_database_provider",
-    "get_db_session",
     "init_database",
-    "drop_db",
 ]

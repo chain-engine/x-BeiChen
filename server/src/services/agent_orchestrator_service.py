@@ -21,6 +21,7 @@ from src.constants import TaskStatus
 from src.core.config import settings
 from src.core.exceptions import NotFoundException, ValidationException
 from src.core.logger import logger
+from src.infras.event_bus import EventBus, get_event_bus
 from src.models.entities.agent_event import AgentEvent
 from src.models.entities.agent_task import AgentTask
 from src.repositories.agent_event_repository import AgentEventRepository
@@ -28,13 +29,23 @@ from src.repositories.agent_task_repository import AgentTaskRepository
 
 
 class AgentOrchestratorService:
-    """编排服务：任务全生命周期管理。"""
+    """编排服务：任务全生命周期管理。
 
-    def __init__(self, session: Session, runtime: AgentRuntime | None = None) -> None:
+    依赖（runtime / event_bus）通过构造函数注入，默认走进程级工厂单例；
+    测试或多实现切换时可传入 Mock/替身，不再硬绑全局状态。
+    """
+
+    def __init__(
+        self,
+        session: Session,
+        runtime: AgentRuntime | None = None,
+        event_bus: EventBus | None = None,
+    ) -> None:
         self._session = session
         self._task_repo = AgentTaskRepository(session)
         self._event_repo = AgentEventRepository(session)
         self._runtime: AgentRuntime = runtime or get_agent_runtime()
+        self._event_bus: EventBus = event_bus or get_event_bus()
 
     # ----------------------------------------------------------
     # 任务提交
@@ -103,9 +114,8 @@ class AgentOrchestratorService:
 
     async def _persist_and_publish_events(self, final_state: dict[str, Any]) -> None:
         """事件双写：agent_events 落库 + EventBus publish（失败仅记日志不阻断）。"""
-        from src.infras.event_bus import EventMessage, get_event_bus
+        from src.infras.event_bus import EventMessage
 
-        bus = get_event_bus()
         for event in final_state.get("events", []):
             self._event_repo.add(
                 AgentEvent(
@@ -117,7 +127,7 @@ class AgentOrchestratorService:
                 )
             )
             try:
-                await bus.publish(
+                await self._event_bus.publish(
                     EventMessage(
                         event_type=event.get("type", "unknown"),
                         payload=event.get("payload") or {},

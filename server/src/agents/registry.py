@@ -13,9 +13,10 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Callable
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Any
 
+from src.agents.base import BaseAgent
 from src.constants import AgentType
 from src.core.logger import logger
 
@@ -25,13 +26,22 @@ if TYPE_CHECKING:
 
 @dataclass
 class AgentSpec:
-    """Agent 规格：注册表的一条记录。"""
+    """Agent 规格：注册表的一条记录，持有 Agent 对象门面。"""
 
-    agent_type: AgentType
-    name: str
-    description: str
-    builder: Callable[[], "CompiledStateGraph"] = field(repr=False)
+    agent: BaseAgent
     enabled: bool = True
+
+    @property
+    def agent_type(self) -> AgentType:
+        return self.agent.agent_type
+
+    @property
+    def name(self) -> str:
+        return self.agent.name
+
+    @property
+    def description(self) -> str:
+        return self.agent.description
 
 
 class AgentRegistry:
@@ -66,7 +76,7 @@ class AgentRegistry:
         if spec is None:
             raise KeyError(f"Agent 未注册：{key}。可注册类型：{list(self._specs)}")
         if key not in self._graphs:
-            self._graphs[key] = spec.builder()
+            self._graphs[key] = spec.agent.build()
             logger.info(f"Agent 子图编译完成：{key}")
         return self._graphs[key]
 
@@ -96,28 +106,14 @@ agent_registry: AgentRegistry = AgentRegistry()
 def register_default_agents() -> None:
     """注册当前骨架已实现的 Agent（数据监控 / 商务对话）。
 
-    惰性 builder：不 import 业务子图模块，直到首次被路由调用，
-    避免编排层初始化时拉入全部 Agent 的依赖。
+    注册 Agent 对象门面实例；子图在首次被路由时才通过 agent.build() 惰性编译，
+    避免编排层初始化时拉入全部业务依赖。
     """
-    from src.agents.business_chat.graph import build_business_chat_graph
-    from src.agents.monitor.graph import build_monitor_graph
+    from src.agents.business_chat.agent import BusinessChatAgent
+    from src.agents.monitor.agent import MonitorAgent
 
-    agent_registry.register(
-        AgentSpec(
-            agent_type=AgentType.MONITOR,
-            name="数据监控 Agent",
-            description="自动拉取广告数据、计算指标、判定异常、告警与建议",
-            builder=build_monitor_graph,
-        )
-    )
-    agent_registry.register(
-        AgentSpec(
-            agent_type=AgentType.BUSINESS_CHAT,
-            name="商务对话 Agent",
-            description="自动接待客户咨询、RAG 检索政策、生成回复、引导转化、转人工",
-            builder=build_business_chat_graph,
-        )
-    )
+    agent_registry.register(AgentSpec(agent=MonitorAgent()))
+    agent_registry.register(AgentSpec(agent=BusinessChatAgent()))
 
 
 # 骨架启动即注册默认 Agent（幂等）
