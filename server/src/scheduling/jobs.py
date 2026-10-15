@@ -28,7 +28,7 @@ async def monitor_scan_job(account_ids: list[str] | None = None, **kwargs: Any) 
         provider = get_cached_database_provider()
         with provider.session() as session:
             service = MonitoringService(session)
-            task_ids = service.trigger_scan(account_ids=account_ids)
+            task_ids = await service.trigger_scan(account_ids=account_ids)
             logger.info(f"[Job] 监控巡检完成，提交任务：{task_ids}")
     except Exception as exc:
         logger.exception(f"[Job] 监控巡检失败：{exc}")

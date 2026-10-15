@@ -25,7 +25,7 @@ class MonitoringService:
         self._session = session
         self._orchestrator = AgentOrchestratorService(session)
 
-    def trigger_scan(self, account_ids: list[str] | None = None) -> list[int]:
+    async def trigger_scan(self, account_ids: list[str] | None = None) -> list[int]:
         """触发一轮数据监控巡检：对每个账户提交一个 monitor 任务。
 
         TODO(业务接入): 账户清单从客户管理 Agent / 广告平台授权列表读取。
@@ -33,7 +33,7 @@ class MonitoringService:
         targets = account_ids or ["acc_default"]
         task_ids: list[int] = []
         for account_id in targets:
-            task = self._orchestrator.submit_task(
+            task = await self._orchestrator.submit_task(
                 task_type=str(AgentType.MONITOR),
                 payload={"account_id": account_id, "scope": "daily"},
             )
@@ -42,5 +42,9 @@ class MonitoringService:
         return task_ids
 
     def list_alerts(self, page: int = 1, page_size: int = 20) -> tuple[list[Any], int]:
-        """查询告警事件（管理后台告警面板）。"""
+        """查询告警事件（管理后台告警面板）。
+
+        口径：EventType.ALERT_RAISED（monitor 子图告警分支发布的即时告警事件；
+        SUGGESTION_CREATED 为建议单事件，走审批闸门，不属于告警面板）。
+        """
         return self._orchestrator.list_events(event_type="alert_raised", page=page, page_size=page_size)

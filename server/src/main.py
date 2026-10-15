@@ -41,7 +41,17 @@ async def lifespan(app: FastAPI):
     registered = [str(spec.agent_type) for spec in agent_registry.list_specs()]
     logger.info(f"Agent 注册表就绪：{registered}")
 
-    # 3. 定时任务（默认关闭：BEICHEN_SCHEDULER_ENABLED=true 时启动监控巡检）
+    # 3. 数据库初始化：DATABASE_ENABLED=true 时首次启动自动检测并创建缺失表
+    #    （幂等；连接失败不阻断启动，相关接口会返回 503 提示）
+    if settings.database.enabled:
+        from src.infras.database import init_database
+
+        try:
+            init_database()
+        except Exception as exc:
+            logger.exception(f"数据库初始化失败（应用继续启动，DB 接口将返回 503）：{exc}")
+
+    # 4. 定时任务（默认关闭：BEICHEN_SCHEDULER_ENABLED=true 时启动监控巡检）
     if os.environ.get("BEICHEN_SCHEDULER_ENABLED", "false").lower() == "true":
         from src.scheduling import get_scheduler
 

@@ -70,7 +70,7 @@ def generate_node(state: ChatState) -> dict[str, Any]:
             "need_human": True,
             "reply": reply,
             "result": {"reply": reply, "intent": "human_required", "handled_by": "human"},
-            "status": TaskStatus.SUCCESS,
+            "status": TaskStatus.SUCCESS.mark,
         }
 
     knowledge = state.get("knowledge") or []
@@ -113,7 +113,7 @@ def generate_node(state: ChatState) -> dict[str, Any]:
         "need_human": False,
         "events": events,
         "result": {"reply": reply, "sources": sources, "intent": state.get("intent")},
-        "status": TaskStatus.SUCCESS,
+        "status": TaskStatus.SUCCESS.mark,
     }
 
 
@@ -133,5 +133,5 @@ def transfer_node(state: ChatState) -> dict[str, Any]:
     logger.info(f"[Chat] transfer to human, customer={state.get('customer_id')}")
     return {
         "events": events,
-        "status": TaskStatus.SUCCESS,
+        "status": TaskStatus.SUCCESS.mark,
     }

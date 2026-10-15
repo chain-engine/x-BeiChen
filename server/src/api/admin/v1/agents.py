@@ -53,7 +53,7 @@ async def submit_task(
     service: AgentOrchestratorService = Depends(get_orchestrator_service),
 ) -> JSONResponse:
     """提交一个 Agent 任务（同步执行）。"""
-    task = service.submit_task(
+    task = await service.submit_task(
         task_type=str(body.task_type),
         payload=body.payload,
         timeout_at=body.timeout_at,
@@ -97,7 +97,7 @@ async def resume_task(
     service: AgentOrchestratorService = Depends(get_orchestrator_service),
 ) -> JSONResponse:
     """人工接管：恢复被 interrupt 暂停的任务。"""
-    task = service.resume_task(
+    task = await service.resume_task(
         task_id=task_id,
         decision=body.decision,
         remark=body.remark,

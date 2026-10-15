@@ -24,7 +24,7 @@ async def trigger_scan(
     service: MonitoringService = Depends(get_monitoring_service),
 ) -> JSONResponse:
     """手动触发监控巡检：对每个账户提交 monitor 任务。"""
-    task_ids = service.trigger_scan(account_ids=account_ids)
+    task_ids = await service.trigger_scan(account_ids=account_ids)
     return success_response(data={"task_ids": task_ids, "count": len(task_ids)}, request=request)
 
 

@@ -142,7 +142,7 @@ The response `events` contains a `suggestion_created` event; when the suggestion
 | `address already in use` | Change port: `--port 8001`, or find the process with `lsof -i:6666` (macOS/Linux) / `netstat -ano \| findstr 6666` (Windows) |
 | `uv` command not found | Install uv: `pip install uv` or `curl -LsSf https://astral.sh/uv/install.sh \| sh` |
 | Business endpoints return 503 | Database disabled: set `DATABASE_ENABLED=true` plus `DATABASE_HOST/PORT/USER/PASSWORD/DATABASE` |
-| `Can't connect to MySQL server` | Confirm MySQL is running and the account has privileges; call `init_database()` first on a fresh install |
+| `Can't connect to MySQL server` | Confirm MySQL is running and the account has privileges; the app auto-creates tables on startup (idempotent), and a connection failure does not block startup (endpoints return 503) |
 | Config changes not applied | Priority: env vars > `config.{env}.yaml` > `config.yaml` > code defaults; check `.env` copy and key names |
 | LLM replies are mock content | `AI_LLM_API_KEY` not set; set it to switch to the real model |
 
@@ -271,7 +271,7 @@ flowchart TD
 | Agent registry | Static mapping of "who handles what" | `task_type → AgentSpec` route table; lazy subgraph compile + cache |
 | Agent runtime | Execution & resume | `checkpointer` (memory/redis); `Command(resume=...)` checkpoint resume |
 | Tool registry | External capabilities + permission | 3 levels: read-only / approval-write / exec-write; insufficient permission raises auth error |
-| Event bus | Agent-to-agent messaging | `InMemoryEventBus` (skeleton) / `RedisStreamEventBus` (prod reserved) |
+| Event bus | Agent-to-agent messaging (dual-write wired) | Orchestration events are both persisted and published; `InMemoryEventBus` (skeleton) / `RedisStreamEventBus` (prod reserved) |
 | RAG retrieval | Policy / FAQ knowledge base | Mock matching in skeleton; vector store in phase-2, answers cite sources |
 
 ## 🛠️ Tech Stack
@@ -284,7 +284,7 @@ flowchart TD
 | LLM integration | LangChain (langchain-core / langchain-openai, OpenAI-compatible) |
 | Data storage | MySQL 8.0 (SQLAlchemy 2 + PyMySQL, Alembic migrations) |
 | Cache | Redis 5.0+ (optional; in-memory by default in skeleton) |
-| Messaging/Events | In-memory event bus (skeleton) / Redis Stream (prod reserved) |
+| Messaging/Events | In-memory event bus (skeleton, dual-write: persist + publish) / Redis Stream (prod reserved) |
 | Configuration | dataclass + PyYAML + python-dotenv |
 | Logging | loguru (JSON files, request_id injection) |
 | Scheduling | APScheduler (AsyncIOScheduler) |
@@ -328,7 +328,7 @@ Core API list (admin console, prefix `/api/admin/v1`):
 | `agent_tasks` | Agent task table (state machine / retry / thread id) | `task_type`, `status`, `thread_id`, `retry_count`, `approval_no`, `result(JSON)` |
 | `agent_events` | Collaboration event table (audit trail) | `event_type`, `source_agent`, `payload(JSON)` |
 
-Config: `DATABASE_HOST / PORT / USER / PASSWORD / DATABASE`; call `init_database()` to auto-create tables.
+Config: `DATABASE_HOST / PORT / USER / PASSWORD / DATABASE`; when `DATABASE_ENABLED=true` the app auto-detects and creates missing tables on startup (idempotent — skipped when tables already exist; a connection failure does not block startup, DB endpoints return 503). To create tables manually: `uv run python -c "from src.infras.database import init_database; init_database()"`.
 
 ### Cache (Redis, optional)
 

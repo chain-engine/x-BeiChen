@@ -20,7 +20,7 @@ from abc import ABC, abstractmethod
 from collections.abc import Generator, Iterator
 from contextlib import contextmanager
 
-from sqlalchemy import Engine, create_engine, text
+from sqlalchemy import Engine, create_engine, inspect, text
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
 from src.core.config import settings
@@ -201,12 +201,24 @@ def release_mysql_lock(session: Session, lock_name: str) -> None:
 
 
 def init_database() -> None:
-    """初始化 MySQL 数据库，创建所有表。"""
+    """初始化 MySQL 数据库：检测缺失的表并创建（幂等，可重复调用）。
+
+    与 `Base.metadata.create_all()` 的差异：
+        create_all 会对每张表执行 DESCRIBE 探测后按需创建（行为等价幂等），
+        但本函数先通过 inspector 一次拿到全部现有表名，只对缺失表执行 DDL，
+        表已齐备时直接跳过，避免启动期逐表探测与日志噪音。
+    """
     from src.models import entities  # noqa: F401
 
     engine = get_cached_database_provider().get_engine()
-    Base.metadata.create_all(bind=engine)
-    logger.info("MySQL tables created")
+    inspector = inspect(engine)
+    existing = set(inspector.get_table_names())
+    missing = [name for name in Base.metadata.tables if name not in existing]
+    if not missing:
+        logger.info(f"MySQL 表已齐备（{sorted(existing)}），跳过建表")
+        return
+    Base.metadata.create_all(bind=engine, tables=[Base.metadata.tables[name] for name in missing])
+    logger.info(f"MySQL 建表完成（新增：{sorted(missing)}）")
 
 
 def drop_db() -> None:

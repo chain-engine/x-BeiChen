@@ -143,7 +143,7 @@ curl -X POST http://127.0.0.1:6666/api/admin/v1/tasks \
 | 端口被占用 `address already in use` | 换端口：`--port 8001`，或 `lsof -i:6666`（macOS/Linux）/ `netstat -ano \| findstr 6666`（Windows）定位占用进程 |
 | `uv` 命令不存在 | 安装 uv：`pip install uv` 或 `curl -LsSf https://astral.sh/uv/install.sh \| sh` |
 | 业务接口返回 503 | 数据库未启用：设置 `DATABASE_ENABLED=true` 并配置 `DATABASE_HOST/PORT/USER/PASSWORD/DATABASE` |
-| 数据库连接失败 `Can't connect to MySQL server` | 确认 MySQL 已启动、账号有权限；本机首次建议先 `init_database()` 建表 |
+| 数据库连接失败 `Can't connect to MySQL server` | 确认 MySQL 已启动、账号有权限；`DATABASE_ENABLED=true` 时应用启动会自动建表，连接失败不阻断启动（接口 503） |
 | 配置未生效 | 配置优先级：环境变量 > `config.{env}.yaml` > `config.yaml` > 代码默认值；检查 `.env` 是否复制且键名正确 |
 | LLM 回复为 mock 内容 | 未配置 `AI_LLM_API_KEY`，配置后自动切换真实模型 |
 
@@ -272,7 +272,7 @@ flowchart TD
 | Agent 注册表 | 「派给谁」的静态映射 | `task_type → AgentSpec` 映射表；子图惰性编译 + 缓存 |
 | Agent 运行时 | 执行与恢复 | `checkpointer`（memory/redis）；`Command(resume=...)` 断点续跑 |
 | 工具注册中心 | Agent 外部能力 + 权限 | 三级权限：只读 / 审批写 / 执行写；权限不足抛授权异常 |
-| 事件总线 | Agent 间协作消息通道 | `InMemoryEventBus`（骨架）/ `RedisStreamEventBus`（生产预留） |
+| 事件总线 | Agent 间协作消息通道（已接入双写） | 编排事件「落库留痕 + publish 广播」；`InMemoryEventBus`（骨架）/ `RedisStreamEventBus`（生产预留） |
 | RAG 检索 | 政策 / FAQ 知识底座 | 骨架为 mock 命中；二期接向量库，回复带来源溯源 |
 
 ## 🛠️ 技术栈
@@ -285,7 +285,7 @@ flowchart TD
 | LLM 接入 | LangChain（langchain-core / langchain-openai，OpenAI 兼容协议） |
 | 数据存储 | MySQL 8.0（SQLAlchemy 2 + PyMySQL，Alembic 迁移） |
 | 缓存 | Redis 5.0+（可选；骨架默认内存实现） |
-| 消息/事件 | 内存事件总线（骨架）/ Redis Stream（生产预留） |
+| 消息/事件 | 内存事件总线（骨架，事件双写：落库 + publish）/ Redis Stream（生产预留） |
 | 配置 | dataclass + PyYAML + python-dotenv |
 | 日志 | loguru（文件恒 JSON，request_id 注入） |
 | 定时任务 | APScheduler（AsyncIOScheduler） |
@@ -329,7 +329,7 @@ flowchart TD
 | `agent_tasks` | Agent 任务表（状态机 / 重试 / 线程 ID） | `task_type`、`status`、`thread_id`、`retry_count`、`approval_no`、`result(JSON)` |
 | `agent_events` | 协作事件表（审计留痕） | `event_type`、`source_agent`、`payload(JSON)` |
 
-配置：`DATABASE_HOST / PORT / USER / PASSWORD / DATABASE`；启用后调用 `init_database()` 自动建表。
+配置：`DATABASE_HOST / PORT / USER / PASSWORD / DATABASE`；`DATABASE_ENABLED=true` 时应用启动（lifespan）自动检测缺失表并创建（幂等，表已齐备则跳过；连接失败不阻断启动，DB 接口返回 503 提示）。如需手动建表：`uv run python -c "from src.infras.database import init_database; init_database()"`。
 
 ### 缓存存储（Redis，可选）
 

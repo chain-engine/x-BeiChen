@@ -34,11 +34,13 @@ def main() -> int:
     )
     assert state["status"] == "success", f"monitor 应成功，实际 {state['status']}"
     events = [e.get("type") for e in state.get("events", [])]
+    assert "alert_raised" in events, f"应产生告警事件，实际 {events}"
     assert "suggestion_created" in events, f"应产生建议事件，实际 {events}"
     print(f"    status  : {state['status']}")
     print(f"    metric  : {state['result']['metric']}")
     print(f"    suggestion: {state['result']['suggestion']}")
     print(f"    events  : {events}")
+    print(f"    target_agent: {state.get('target_agent')}（assignee_agent 回写依据）")
     print(f"    approval_no: {state.get('approval_no')}（资金写未直接执行 → None，走审批）")
 
     # ── 链路 2：商务对话（正常咨询 → RAG mock 检索 + 来源溯源）──
@@ -57,21 +59,18 @@ def main() -> int:
     print("=" * 56)
     print("[3] 人工接管链路：interrupt 断点 → resume 续跑")
     thread = f"resume_demo:{uuid.uuid4().hex[:6]}"
-    initial = {
-        "task_id": 999,
-        "task_type": "business_chat",
-        "payload": {"customer_id": "cust_003", "message": "我要投诉，转人工！"},
-        "target_agent": None,
-        "status": "running",
-        "result": None,
-        "error": None,
-        "events": [],
-        "approval_no": None,
-    }
-    config = {"configurable": {"thread_id": thread}}
-    paused = orchestrator.invoke(initial, config=config)
+    paused = runtime.invoke_task(
+        "business_chat",
+        {"customer_id": "cust_003", "message": "我要投诉，转人工！"},
+        thread_id=thread,
+        task_id=999,
+    )
     print(f"    第一轮（interrupt 暂停）: status={paused.get('status')}")
-    assert paused.get("status") == "running", "interrupt 后应处于暂停态（running）"
+    assert paused.get("status") == "waiting_human", f"interrupt 后应处于等待人工，实际 {paused.get('status')}"
+    assert "__interrupt__" not in paused, "返回状态不应残留不可序列化的 __interrupt__"
+    interrupt_ctx = (paused.get("result") or {}).get("interrupt")
+    assert interrupt_ctx is not None, "result 中应携带人工接管上下文"
+    print(f"    interrupt 上下文: {interrupt_ctx}")
     resumed = runtime.resume_task(thread, {"decision": "approve", "remark": "人工已介入处理投诉"})
     print(f"    第二轮（resume 恢复）  : status={resumed.get('status')}")
     print(f"    reply: {resumed.get('result')}")

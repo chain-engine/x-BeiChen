@@ -163,12 +163,14 @@ class TaskStatus(StrBaseEnum):
 
     流转：pending → assigned → running → success
                           ↘ failed → retry → running
+                          ↘ waiting_human（人工接管中断，resume 后继续）
                                    ↘ abandoned（重试超限，转人工）
     """
 
     PENDING = "pending", "待派发"
     ASSIGNED = "assigned", "已派发"
     RUNNING = "running", "执行中"
+    WAITING_HUMAN = "waiting_human", "等待人工"
     SUCCESS = "success", "成功"
     FAILED = "failed", "失败"
     RETRY = "retry", "待重试"

@@ -92,7 +92,16 @@ def alert_node(state: MonitorState) -> dict[str, Any]:
         content=suggestion.get("message", "检测到投放异常"),
         campaign_id=(state.get("raw") or {}).get("campaign_id"),
     )
-    # 2. 发布建议事件（涉及资金写 → 审批闸门接管）
+    # 2. 发布双事件（口径约定）：
+    #    ALERT_RAISED      即时告警事实 → 管理后台「告警面板」消费（EventType.ALERT_RAISED）
+    #    SUGGESTION_CREATED 处置建议单（涉及资金写）→ 审批闸门消费（二期）
+    events.append(
+        {
+            "type": EventType.ALERT_RAISED,
+            "source": "monitor",
+            "payload": {"metric": state.get("metric"), "suggestion": suggestion},
+        }
+    )
     events.append(
         {
             "type": EventType.SUGGESTION_CREATED,
@@ -106,4 +115,4 @@ def alert_node(state: MonitorState) -> dict[str, Any]:
         "approved_actions": [],  # 审批通过后的执行记录（二期回填）
     }
     logger.info(f"[Monitor] alert published, events={len(events)}")
-    return {"events": events, "result": result, "status": TaskStatus.SUCCESS}
+    return {"events": events, "result": result, "status": TaskStatus.SUCCESS.mark}

@@ -38,7 +38,7 @@ class AgentOrchestratorService:
     # 任务提交
     # ----------------------------------------------------------
 
-    def submit_task(
+    async def submit_task(
         self,
         task_type: str,
         payload: dict[str, Any],
@@ -53,6 +53,9 @@ class AgentOrchestratorService:
 
         Returns:
             回写执行结果后的 AgentTask（含 thread_id / status / result）
+
+        事件双写契约：编排产生的事件同时「落库留痕 + publish 事件总线」，
+        publish 失败不影响主流程（仅记日志），总线作为 Agent 间协作广播通道。
         """
         # 1. 校验任务类型可路由（提前失败，避免无效任务落库）
         from src.agents.registry import agent_registry
@@ -91,7 +94,17 @@ class AgentOrchestratorService:
         # 4. 回写执行结果
         self._apply_final_state(task, final_state, thread_id)
 
-        # 5. 事件落库（留痕：意向/告警/建议均持久化）
+        # 5. 事件双写：落库留痕 + 发布事件总线（Agent 协作广播）
+        await self._persist_and_publish_events(final_state)
+
+        self._task_repo.commit()
+        return task
+
+    async def _persist_and_publish_events(self, final_state: dict[str, Any]) -> None:
+        """事件双写：agent_events 落库 + EventBus publish（失败仅记日志不阻断）。"""
+        from src.infras.event_bus import EventMessage, get_event_bus
+
+        bus = get_event_bus()
         for event in final_state.get("events", []):
             self._event_repo.add(
                 AgentEvent(
@@ -102,20 +115,30 @@ class AgentOrchestratorService:
                     status="recorded",
                 )
             )
-        self._task_repo.commit()
-        return task
+            try:
+                await bus.publish(
+                    EventMessage(
+                        event_type=event.get("type", "unknown"),
+                        payload=event.get("payload") or {},
+                        source_agent=event.get("source"),
+                        target_agent=event.get("target"),
+                    )
+                )
+            except Exception as exc:
+                logger.exception(f"[OrchestratorService] 事件发布失败（已落库留痕）：{exc}")
 
     def _apply_final_state(self, task: AgentTask, final_state: dict[str, Any], thread_id: str) -> None:
         """把编排图最终状态回写到任务实体。"""
         task.thread_id = thread_id
         task.status = final_state.get("status", TaskStatus.SUCCESS)
+        task.assignee_agent = final_state.get("target_agent")  # 路由结果回写（②③④：Agent 归属可查）
         task.result = final_state.get("result") or final_state
         task.error_message = final_state.get("error")
         task.approval_no = final_state.get("approval_no")
         task.timeout_at = None
         if final_state.get("status") == TaskStatus.FAILED:
             task.retry_count += 1
-        logger.info(f"[OrchestratorService] 任务结束：id={task.id} status={task.status}")
+        logger.info(f"[OrchestratorService] 任务结束：id={task.id} status={task.status} assignee={task.assignee_agent}")
 
     # ----------------------------------------------------------
     # 任务查询
@@ -144,14 +167,18 @@ class AgentOrchestratorService:
     # 人工接管（interrupt → resume）
     # ----------------------------------------------------------
 
-    def resume_task(self, task_id: int, decision: str, remark: str | None = None, extra: dict[str, Any] | None = None) -> AgentTask:
-        """恢复被 interrupt 暂停的任务（人工决策 approve/reject/adjust）。"""
+    async def resume_task(self, task_id: int, decision: str, remark: str | None = None, extra: dict[str, Any] | None = None) -> AgentTask:
+        """恢复被 interrupt 暂停的任务（人工决策 approve/reject/adjust）。
+
+        恢复后同样执行事件双写（人工决策产生的后续事件落库 + 广播）。
+        """
         task = self.get_task(task_id)
         if not task.thread_id:
             raise ValidationException("任务无线程 ID，无法恢复（可能未执行或已完成）")
         update = {"decision": decision, "remark": remark, "extra": extra or {}}
         final_state = self._runtime.resume_task(task.thread_id, update)
         self._apply_final_state(task, final_state, task.thread_id)
+        await self._persist_and_publish_events(final_state)
         self._task_repo.commit()
         return task
 

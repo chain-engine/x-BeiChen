@@ -106,7 +106,7 @@ class AgentRuntime:
             "task_type": task_type,
             "payload": payload,
             "target_agent": None,
-            "status": TaskStatus.RUNNING,
+            "status": TaskStatus.RUNNING.mark,  # 字符串值：checkpoint 只序列化基础类型（枚举实例未来会被阻断）
             "result": None,
             "error": None,
             "events": [],
@@ -116,7 +116,21 @@ class AgentRuntime:
         logger.info(f"[Runtime] invoke task={task_type} thread={thread}")
         try:
             final_state = orchestrator.invoke(initial_state, config=config)
-            logger.info(f"[Runtime] task done thread={thread} status={final_state.get('status')}")
+            # 人工接管识别：子图 interrupt() 后 LangGraph 在状态中注入 __interrupt__。
+            # 此时任务处于"等待人工"而非失败/完成，需：
+            #   1) 状态置 WAITING_HUMAN（管理后台可区分"执行中"与"等待人工"）
+            #   2) 剔除 __interrupt__（Interrupt 对象不可 JSON 序列化，避免落库失败）
+            #   3) 把人工接管上下文写入 result（可序列化，供人工面板展示）
+            if "__interrupt__" in final_state:
+                interrupts = final_state.pop("__interrupt__")
+                final_state["status"] = TaskStatus.WAITING_HUMAN
+                if final_state.get("result") is None:
+                    first = interrupts[0] if isinstance(interrupts, (list, tuple)) else interrupts
+                    interrupt_ctx = getattr(first, "value", None) or {}
+                    final_state["result"] = {"interrupt": interrupt_ctx}
+                logger.info(f"[Runtime] task interrupted thread={thread} → waiting_human")
+            else:
+                logger.info(f"[Runtime] task done thread={thread} status={final_state.get('status')}")
             return final_state
         except Exception as exc:
             logger.exception(f"[Runtime] task failed thread={thread}: {exc}")
