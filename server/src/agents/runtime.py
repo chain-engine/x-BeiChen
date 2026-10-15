@@ -1,0 +1,174 @@
+#!/usr/bin/env python3
+"""Agent 统一运行时（北辰 x-BeiChen）。
+
+负责：
+    1. 顶层编排图（调度中枢）的构建与编译
+    2. checkpointer 装配（memory / redis）
+    3. 任务执行 invoke 与人工接管 resume（interrupt 断点续跑）
+    4. 执行上下文（thread_id）管理
+
+标准调用链（LangGraph + LangChain 配合）：
+    AgentRuntime.invoke_task() ──▶ 顶层编排图（orchestrator）
+        └── route 节点（注册表路由）
+        └── subagent 节点（调用业务子图）
+            └── 子图节点内部：ChatPromptTemplate + ChatOpenAI（LangChain）
+        └── aggregate 节点（聚合结果）
+"""
+
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any
+
+from src.agents.registry import AgentRegistry, agent_registry
+from src.constants import AgentRunStatus, TaskStatus
+from src.core.config import settings
+from src.core.logger import logger
+
+if TYPE_CHECKING:
+    from langgraph.graph.state import CompiledStateGraph
+
+
+class AgentRuntime:
+    """Agent 运行时：编排图构建 + 检查点 + 执行/恢复。"""
+
+    def __init__(self, registry: AgentRegistry | None = None) -> None:
+        self._registry: AgentRegistry = registry or agent_registry
+        self._orchestrator: "CompiledStateGraph | None" = None
+        self._checkpointer: Any | None = None
+
+    # ----------------------------------------------------------
+    # checkpointer
+    # ----------------------------------------------------------
+
+    def _get_checkpointer(self) -> Any | None:
+        """按配置装配检查点：
+        - memory：进程内内存（开发期，重启丢状态）
+        - redis：RedisSaver（生产，需 RedisConfig.enabled 且依赖 langgraph-checkpoint-redis）
+        """
+        if self._checkpointer is not None:
+            return self._checkpointer
+        mode = settings.agent.checkpoint
+        if mode == "redis" and settings.redis.enabled:
+            from langgraph.checkpoint.redis import RedisSaver
+
+            import redis as redis_client
+
+            self._checkpointer = RedisSaver(redis_client.Redis.from_url(settings.redis.url))
+            logger.info("AgentRuntime checkpointer：RedisSaver")
+        else:
+            from langgraph.checkpoint.memory import MemorySaver
+
+            self._checkpointer = MemorySaver()
+            logger.info("AgentRuntime checkpointer：MemorySaver（骨架阶段，重启即失）")
+        return self._checkpointer
+
+    # ----------------------------------------------------------
+    # 编排图
+    # ----------------------------------------------------------
+
+    def build_orchestrator(self) -> "CompiledStateGraph":
+        """构建顶层调度中枢编排图（懒加载 + 缓存）。"""
+        if self._orchestrator is None:
+            from src.agents.orchestrator import build_orchestrator_graph
+
+            self._orchestrator = build_orchestrator_graph(self._registry, checkpointer=self._get_checkpointer())
+            logger.info("顶层编排图（Orchestrator）构建完成")
+        return self._orchestrator
+
+    # ----------------------------------------------------------
+    # 执行
+    # ----------------------------------------------------------
+
+    def invoke_task(
+        self,
+        task_type: str,
+        payload: dict[str, Any],
+        thread_id: str | None = None,
+        task_id: int | None = None,
+    ) -> dict[str, Any]:
+        """提交并执行一个 Agent 任务（同步执行入口）。
+
+        Args:
+            task_type: 任务类型（AgentType.mark）
+            payload: 任务入参
+            thread_id: LangGraph 线程 ID（断点续跑定位；缺省自动生成）
+            task_id: 落库任务 ID（回写审计）
+
+        Returns:
+            编排图最终状态（含 status / result / events / approval_no）
+        """
+        import uuid
+
+        orchestrator = self.build_orchestrator()
+        thread = thread_id or f"{task_type}:{task_id or 'anon'}:{uuid.uuid4().hex[:8]}"
+        initial_state: dict[str, Any] = {
+            "task_id": task_id or 0,
+            "task_type": task_type,
+            "payload": payload,
+            "target_agent": None,
+            "status": TaskStatus.RUNNING,
+            "result": None,
+            "error": None,
+            "events": [],
+            "approval_no": None,
+        }
+        config = {"configurable": {"thread_id": thread}}
+        logger.info(f"[Runtime] invoke task={task_type} thread={thread}")
+        try:
+            final_state = orchestrator.invoke(initial_state, config=config)
+            logger.info(f"[Runtime] task done thread={thread} status={final_state.get('status')}")
+            return final_state
+        except Exception as exc:
+            logger.exception(f"[Runtime] task failed thread={thread}: {exc}")
+            return {
+                **initial_state,
+                "status": TaskStatus.FAILED,
+                "error": str(exc),
+            }
+
+    def resume_task(self, thread_id: str, update: dict[str, Any]) -> dict[str, Any]:
+        """人工接管后恢复执行（LangGraph interrupt/resume）。
+
+        Args:
+            thread_id: 原任务线程 ID
+            update: 人工决策载荷（approve/reject/adjust + 备注）
+
+        Returns:
+            恢复后的最终状态
+        """
+        orchestrator = self.build_orchestrator()
+        config = {"configurable": {"thread_id": thread_id}}
+        logger.info(f"[Runtime] resume thread={thread_id} update={update}")
+        try:
+            # LangGraph 新版本约定：用 Command(resume=...) 传递人工决策，
+            # 框架从 checkpoint 定位中断点并继续执行（断点续跑）。
+            from langgraph.types import Command
+
+            final_state = orchestrator.invoke(Command(resume=update), config=config)
+            return final_state
+        except Exception as exc:
+            logger.exception(f"[Runtime] resume failed thread={thread_id}: {exc}")
+            return {"status": TaskStatus.FAILED, "error": str(exc)}
+
+    def get_run_status(self) -> dict[str, str]:
+        """运行状态快照（管理后台可观测面板用）。"""
+        return {
+            "orchestrator_ready": str(self._orchestrator is not None),
+            "checkpointer": settings.agent.checkpoint,
+            "run_status": AgentRunStatus.IDLE,
+        }
+
+
+# 全局单例（FastAPI 依赖注入 / service 层统一使用）
+_runtime: AgentRuntime | None = None
+
+
+def get_agent_runtime() -> AgentRuntime:
+    """获取全局 AgentRuntime 单例。"""
+    global _runtime
+    if _runtime is None:
+        _runtime = AgentRuntime()
+    return _runtime
+
+
+__all__ = ["AgentRuntime", "get_agent_runtime"]

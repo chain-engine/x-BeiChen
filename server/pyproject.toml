@@ -1,0 +1,60 @@
+[project]
+name = "x-beichen-server"
+version = "0.1.0"
+description = "北辰（BeiChen）Agent 编排平台后端：LangGraph + LangChain 多 Agent 编排"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    # Web 框架
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.30",
+    # 数据校验与配置
+    "pydantic>=2.8",
+    "pyyaml>=6.0",
+    "python-dotenv>=1.0",
+    # 数据访问（SQLAlchemy 2 + MySQL）
+    "sqlalchemy>=2.0",
+    "pymysql>=1.1",
+    "alembic>=1.13",
+    # 缓存 / 事件总线
+    "redis>=5.0",
+    # 日志
+    "loguru>=0.7",
+    # Agent 编排（LangGraph + LangChain 组合）
+    "langgraph>=0.2",
+    "langchain-core>=0.3",
+    "langchain-openai>=0.2",
+    "openai>=1.40",
+    # 定时任务
+    "apscheduler>=3.10",
+    # HTTP 客户端（外部服务对接）
+    "requests>=2.32",
+]
+
+[project.optional-dependencies]
+dev = [
+    "ruff>=0.5",
+    "mypy>=1.10",
+    "pytest>=8.0",
+    "pytest-asyncio>=0.24",
+    "httpx>=0.27",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "N", "UP"]
+ignore = ["E501"]

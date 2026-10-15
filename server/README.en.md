@@ -1,0 +1,355 @@
+# BeiChen x-BeiChen (Agent Orchestration Platform)
+
+A multi-agent orchestration platform for "Affiliate Ad-Tech Automation SaaS + Overseas Marketing Intelligence Platform": LangGraph orchestrates agent collaboration, LangChain assembles model capabilities, a route table dispatches tasks, and all money-related operations go through an approval gate.
+
+[中文](README.md) | English
+
+![Python](https://img.shields.io/badge/Python-3.11%2B-3776AB?logo=python&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-0.115%2B-009688?logo=fastapi&logoColor=white)
+![LangGraph](https://img.shields.io/badge/LangGraph-0.2%2B-1C3C3C)
+![LangChain](https://img.shields.io/badge/LangChain-0.3%2B-1C3C3C?logo=langchain&logoColor=white)
+![SQLAlchemy](https://img.shields.io/badge/SQLAlchemy-2.0%2B-D71F00?logo=sqlalchemy&logoColor=white)
+![MySQL](https://img.shields.io/badge/MySQL-8.0-4479A1?logo=mysql&logoColor=white)
+![Redis](https://img.shields.io/badge/Redis-5.0%2B-DC382D?logo=redis&logoColor=white)
+![Docker](https://img.shields.io/badge/Docker-24.0%2B-2496ED?logo=docker&logoColor=white)
+![uv](https://img.shields.io/badge/uv-0.5%2B-6E40C9)
+
+![Stars](https://img.shields.io/github/stars/yeyushilai/x-BeiChen?label=Stars)
+![Forks](https://img.shields.io/github/forks/yeyushilai/x-BeiChen?label=Forks)
+![License](https://img.shields.io/github/license/yeyushilai/x-BeiChen?label=License)
+![Monthly Commits](https://img.shields.io/github/commit-activity/m/yeyushilai/x-BeiChen?label=Commits)
+
+## 💡 Introduction
+
+BeiChen is an Agent orchestration platform built on **LangGraph + LangChain**, serving two business directions:
+
+- **Affiliate Ad-Tech Automation SaaS**: Business Chat Agent handles customer inquiries (RAG policy Q&A), Data Monitoring Agent patrols campaign data and raises alerts with suggestions, Customer Management & Scheduling Agent tracks customers and generates reports;
+- **Overseas Marketing Intelligence Platform**: Content Creation Agent generates multilingual creatives, Customer Service & Conversion Agent drives conversions, Ad Insight Agent summarizes creative performance and competitor moves.
+
+The platform enforces three engineering rules: **money operations always pass the approval gate** (approval-write tools + auditable approval IDs), **full event traceability** (event bus + persistence), and **evidence-grounded answers** (RAG retrieval with source citations). The phase-1 ad approval system is a separate project; BeiChen integrates with it through the approval gate.
+
+## 🚀 Quick Start
+
+### 1. Environment Requirements
+
+| OS | Requirements |
+| --- | --- |
+| **Windows** | Windows 10+ / PowerShell 5.1+; install [Python 3.11+](https://www.python.org/downloads/) and [uv](https://docs.astral.sh/uv/) |
+| **Linux** | Ubuntu 22.04+ / CentOS 8+; `apt install python3.11 python3.11-venv` or use pyenv |
+| **macOS** | macOS 13+; `brew install python@3.11 uv` |
+
+> MySQL and Redis are optional: the skeleton runs with `DATABASE_ENABLED=false` and `REDIS_ENABLED=false`; business endpoints return 503 with setup hints until enabled.
+
+### 2. Clone the Repository
+
+```bash
+git clone https://github.com/yeyushilai/x-BeiChen.git
+cd x-BeiChen/server
+```
+
+### 3. Sync Dependencies
+
+```bash
+uv sync          # Standard install & lock dependencies (generates uv.lock)
+```
+
+### 4. Environment Configuration
+
+Create `.env` (copy from `.env.example`):
+
+```bash
+cp .env.example .env
+```
+
+Key parameters:
+
+| Parameter | Default | Description |
+| --- | --- | --- |
+| `APP_ENV` | `development` | Runtime environment: development / testing / production |
+| `SERVER_PORT` | `6666` | Service port |
+| `DATABASE_ENABLED` | `false` | Enable MySQL (auto-creates tables) |
+| `DATABASE_HOST` | `localhost` | MySQL host |
+| `REDIS_ENABLED` | `false` | Enable Redis (cache / event bus / checkpoints) |
+| `AI_LLM_API_KEY` | empty | Switches from Mock to a real model when set (OpenAI-compatible) |
+| `AI_LLM_BASE_URL` | Ark v3 | LLM endpoint; supports Doubao Ark / DeepSeek / local vLLM |
+| `AGENT_CHECKPOINT` | `memory` | Agent checkpoint: memory (dev) / redis (prod) |
+| `BEICHEN_SCHEDULER_ENABLED` | `false` | Enable scheduled jobs (monitoring patrol every 15 min) |
+
+### 5. Start the Service
+
+**Option A: Local dev with hot reload**
+
+```bash
+uv run uvicorn src.main:app --reload --port 6666
+```
+
+**Option B: Docker deployment**
+
+```bash
+docker build -t x-beichen-server .
+docker run -p 6666:6666 --env-file .env x-beichen-server
+```
+
+API docs: <http://127.0.0.1:6666/docs>
+
+### 6. Common Engineering Commands
+
+```bash
+# Unit tests
+uv run pytest
+
+# Formatting
+uv run ruff format src
+
+# Static checks
+uv run ruff check src
+uv run mypy src
+
+# Dependency vulnerability scan
+uv run pip-audit
+
+# End-to-end orchestration self-check (no DB required; verifies 3 core paths)
+uv run python scripts/verify_agent_flow.py
+```
+
+### 7. Usage Example
+
+Submit a data monitoring task (patrol + alert suggestions):
+
+```bash
+curl -X POST http://127.0.0.1:6666/api/admin/v1/tasks \
+  -H "Content-Type: application/json" \
+  -d '{"task_type": "monitor", "payload": {"account_id": "acc_001", "campaign_id": "camp_001"}}'
+```
+
+The response `events` contains a `suggestion_created` event; when the suggestion involves money operations, `approval_no` stays empty — the approval gate (phase-2, ad approval system integration) takes over, and money operations are never executed directly by agents.
+
+### 8. Troubleshooting
+
+| Symptom | Cause & Solution |
+| --- | --- |
+| `address already in use` | Change port: `--port 8001`, or find the process with `lsof -i:6666` (macOS/Linux) / `netstat -ano \| findstr 6666` (Windows) |
+| `uv` command not found | Install uv: `pip install uv` or `curl -LsSf https://astral.sh/uv/install.sh \| sh` |
+| Business endpoints return 503 | Database disabled: set `DATABASE_ENABLED=true` plus `DATABASE_HOST/PORT/USER/PASSWORD/DATABASE` |
+| `Can't connect to MySQL server` | Confirm MySQL is running and the account has privileges; call `init_database()` first on a fresh install |
+| Config changes not applied | Priority: env vars > `config.{env}.yaml` > `config.yaml` > code defaults; check `.env` copy and key names |
+| LLM replies are mock content | `AI_LLM_API_KEY` not set; set it to switch to the real model |
+
+## 📁 Project Structure
+
+```
+server/
+├── src/
+│   ├── main.py              # App entry: create_app / lifespan / middleware & route assembly
+│   ├── api/                 # API layer: HTTP access, param parsing, dependency wiring
+│   │   ├── dependencies.py  # Shared DI (DB session, service assembly)
+│   │   ├── response.py      # Unified response (ApiResponse: code/message/data/timestamp)
+│   │   ├── router.py        # Central routing (/api/admin/...)
+│   │   └── admin/v1/        # Route groups: health / auth(reserved) / agents / monitoring
+│   ├── services/            # Business layer: rules & transaction orchestration (no Request access)
+│   │   ├── agent_orchestrator_service.py  # Task submit/query/human takeover/event persistence
+│   │   └── monitoring_service.py         # Patrol trigger / alert query
+│   ├── repositories/        # Data access layer: pure CRUD, no business rules
+│   │   ├── base_repository.py            # Generic CRUD base
+│   │   ├── agent_task_repository.py      # Agent task table access
+│   │   └── agent_event_repository.py     # Agent event table access
+│   ├── models/entities/     # SQLAlchemy ORM entities
+│   │   ├── agent_task.py    # agent_tasks (state machine / retry / approval_no)
+│   │   └── agent_event.py   # agent_events (audit trail)
+│   ├── agents/              # Agent orchestration layer (LangGraph + LangChain)
+│   │   ├── orchestrator.py  # Top-level hub: route → subgraph nodes → aggregate
+│   │   ├── registry.py      # Agent registry (route table: who handles what)
+│   │   ├── runtime.py       # Runtime: checkpointer / invoke / resume (checkpoint resume)
+│   │   ├── state.py         # Shared state TypedDict (merge contract)
+│   │   ├── base.py          # BaseAgent abstract (subgraph contract)
+│   │   ├── tools/           # Tool registry (read-only / approval-write / exec-write)
+│   │   ├── monitor/         # Data Monitoring Agent subgraph
+│   │   └── business_chat/   # Business Chat Agent subgraph
+│   ├── infras/              # Infrastructure: database / http / cache / event_bus / llm
+│   ├── schemas/             # Pydantic models: unified response / agent task IO
+│   ├── constants/           # Constants & enums (incl. agent orchestration domain)
+│   ├── core/                # Global support: config / logger / exceptions / middleware
+│   ├── scheduling/          # Scheduled jobs (APScheduler monitoring patrol)
+│   ├── templates/prompts/   # Prompt templates (separated from node code)
+│   └── utils/               # Stateless helpers: mask/path, type conversion
+├── scripts/
+│   └── verify_agent_flow.py # E2E orchestration self-check script
+├── pyproject.toml           # Project metadata & dependencies (uv)
+├── .env.example             # Environment variable sample
+├── config.yaml.example      # YAML config sample (copy to config.yaml)
+└── Dockerfile               # Container image definition
+```
+
+## 🏗️ System Architecture
+
+### Layered Architecture
+
+```mermaid
+flowchart TB
+    subgraph Web["Access Layer (web/ separate repo)"]
+        W1["Admin Console Frontend"]
+        W2["Customer Touchpoint (IM / Web)"]
+    end
+
+    subgraph API["API Layer (api/)"]
+        A1["/api/admin/v1: health / agents / tasks / monitoring"]
+        A2["Unified response + global exceptions"]
+    end
+
+    subgraph ORCH["Agent Orchestration Layer (agents/)"]
+        C1["Top-level graph: route → subgraph → aggregate"]
+        C2["Business subgraphs: Monitor / Business Chat"]
+        C3["Agent registry (route table)"]
+        C4["Tool registry (3 permission levels)"]
+    end
+
+    subgraph BIZ["Business Logic Layer (services/)"]
+        D1["AgentOrchestratorService"]
+        D2["MonitoringService"]
+    end
+
+    subgraph DATA["Data Access Layer (repositories/ + models/)"]
+        E1["agent_tasks / agent_events"]
+    end
+
+    subgraph INFRA["Infrastructure Layer (infras/ + core/)"]
+        F1["MySQL connection pool"]
+        F2["Redis (cache / event bus / checkpoints)"]
+        F3["LLM Provider (LangChain)"]
+        F4["Logging / config / exceptions / middleware"]
+    end
+
+    Web --> API --> BIZ --> DATA
+    BIZ --> ORCH
+    ORCH --> INFRA
+    DATA --> INFRA
+```
+
+### Core Flow: Agent Task Orchestration
+
+```mermaid
+flowchart LR
+    Start([Submit Task]) --> Route["route node<br>route table (task_type → Agent)"]
+    Route -->|monitor| Sub1["Monitor Subgraph"]
+    Route -->|business_chat| Sub2["Business Chat Subgraph"]
+    Sub1 --> Agg["aggregate<br>(status / result / events)"]
+    Sub2 --> Agg
+    Agg --> DB[("persist task / events<br>audit trail")]
+    Sub2 -->|complaint / needs human| Int["interrupt human takeover<br>(LangGraph checkpoint pause)"]
+    Int -->|resume human decision| Sub2
+```
+
+### Core Flow: Monitoring Patrol
+
+```mermaid
+flowchart TD
+    Pull["Pull campaign data (read-only tool)"] --> Calc["Compute metrics (spend / CPC / budget usage)"]
+    Calc --> Judge{"judge conditional edge<br>anomaly?"}
+    Judge -->|"normal"| Normal["End, next patrol round"]
+    Judge -->|"alert"| Alert["Alert + publish suggestion event"]
+    Alert --> Money{"involves money write?"}
+    Money -->|"yes"| Approval["Approval gate (ad approval system, phase-2)<br>agent never executes directly"]
+    Money -->|"no"| Done["End"]
+```
+
+### Key Components
+
+| Component | Responsibility | Implementation |
+| --- | --- | --- |
+| Top-level orchestration graph | Dispatch path, subgraph lifecycle, result aggregation | LangGraph `StateGraph`; compiled subgraphs registered as nodes; conditional dynamic routing |
+| Agent registry | Static mapping of "who handles what" | `task_type → AgentSpec` route table; lazy subgraph compile + cache |
+| Agent runtime | Execution & resume | `checkpointer` (memory/redis); `Command(resume=...)` checkpoint resume |
+| Tool registry | External capabilities + permission | 3 levels: read-only / approval-write / exec-write; insufficient permission raises auth error |
+| Event bus | Agent-to-agent messaging | `InMemoryEventBus` (skeleton) / `RedisStreamEventBus` (prod reserved) |
+| RAG retrieval | Policy / FAQ knowledge base | Mock matching in skeleton; vector store in phase-2, answers cite sources |
+
+## 🛠️ Tech Stack
+
+| Category | Choice |
+| --- | --- |
+| Language | Python 3.11+ |
+| Web framework | FastAPI 0.115+ / Uvicorn |
+| Agent orchestration | LangGraph 0.2+ (top-level graph + subgraph nesting) |
+| LLM integration | LangChain (langchain-core / langchain-openai, OpenAI-compatible) |
+| Data storage | MySQL 8.0 (SQLAlchemy 2 + PyMySQL, Alembic migrations) |
+| Cache | Redis 5.0+ (optional; in-memory by default in skeleton) |
+| Messaging/Events | In-memory event bus (skeleton) / Redis Stream (prod reserved) |
+| Configuration | dataclass + PyYAML + python-dotenv |
+| Logging | loguru (JSON files, request_id injection) |
+| Scheduling | APScheduler (AsyncIOScheduler) |
+| Package manager | uv (pyproject.toml + uv.lock) |
+| Deployment | Docker / docker-compose |
+
+## 📖 API Documentation
+
+After starting the service:
+
+| Document | URL |
+| --- | --- |
+| Swagger interactive docs | <http://127.0.0.1:6666/docs> |
+| ReDoc read-only docs | <http://127.0.0.1:6666/redoc> |
+| OpenAPI JSON spec | <http://127.0.0.1:6666/openapi.json> |
+
+Core API list (admin console, prefix `/api/admin/v1`):
+
+| Method | Path | Description |
+| --- | --- | --- |
+| GET | `/health` | Health probe (db / redis / agent_runtime status) |
+| GET | `/version` | App version |
+| POST | `/auth/login` | Login (reserved: phase-2 JWT + RBAC) |
+| GET | `/agents` | Agent registry list |
+| POST | `/tasks` | Submit an agent task (task_type + payload) |
+| GET | `/tasks` | Task list (status / task_type filter, paged) |
+| GET | `/tasks/{task_id}` | Task detail |
+| POST | `/tasks/{task_id}/resume` | Human takeover resume (interrupt/resume) |
+| GET | `/events` | Collaboration event list (audit) |
+| POST | `/monitoring/scan` | Manually trigger monitoring patrol |
+| GET | `/monitoring/alerts` | Alert event list |
+
+**Access control**: skeleton phase — auth / rate limiting / circuit breaker / request ID are implemented but disabled by default (`src/core/middleware.py`); after phase-2 JWT + RBAC, admin endpoints require an `Authorization` header.
+
+## 💾 Storage Configuration
+
+### Database (MySQL, enabled when `DATABASE_ENABLED=true`)
+
+| Table | Description | Key columns |
+| --- | --- | --- |
+| `agent_tasks` | Agent task table (state machine / retry / thread id) | `task_type`, `status`, `thread_id`, `retry_count`, `approval_no`, `result(JSON)` |
+| `agent_events` | Collaboration event table (audit trail) | `event_type`, `source_agent`, `payload(JSON)` |
+
+Config: `DATABASE_HOST / PORT / USER / PASSWORD / DATABASE`; call `init_database()` to auto-create tables.
+
+### Cache (Redis, optional)
+
+Enabled with `REDIS_ENABLED=true`. Uses: agent checkpoints (`AGENT_CHECKPOINT=redis`), event bus (Redis Stream), task idempotency. The skeleton uses an in-process in-memory implementation by default.
+
+### Local File Storage
+
+- Log files: `server/logs/x-BeiChen-{time}.log` (loguru, JSON format, auto-rotation/compression);
+- Config files: `server/config.yaml` (or `config.{env}.yaml`, e.g. `config.production.yaml`).
+
+## 📜 License
+
+Released under the [MIT License](../LICENSE) (Copyright © 2026 John Young).
+
+## 🔗 References
+
+| Dependency | Official docs |
+| --- | --- |
+| Python | <https://docs.python.org/3/> |
+| uv | <https://docs.astral.sh/uv/> |
+| FastAPI | <https://fastapi.tiangolo.com/> |
+| LangGraph | <https://langchain-ai.github.io/langgraph/> |
+| LangChain | <https://python.langchain.com/docs/> |
+| SQLAlchemy | <https://docs.sqlalchemy.org/en/20/> |
+| Redis | <https://redis.io/docs/> |
+| loguru | <https://loguru.readthedocs.io/> |
+| Docker | <https://docs.docker.com/> |
+
+## 📧 Contact
+
+- Author: John Young (夜雨诗来)
+- Email: john.young@foxmail.com
+- Gitee: <https://gitee.com/yeyushilai>
+- GitHub: <https://github.com/yeyushilai>
+- Project URL: TBD

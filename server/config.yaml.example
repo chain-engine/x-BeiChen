@@ -1,0 +1,78 @@
+# ── 北辰 x-BeiChen 默认配置示例 ─────────────────────────────
+# 复制为 server/config.yaml 使用；环境特定配置可放 config.{env}.yaml（如 config.production.yaml）
+
+app_env: development
+
+server:
+  host: 0.0.0.0
+  port: 6666
+  debug: true
+  workers: 1
+
+logging:
+  level: INFO
+  format: console        # console | json
+  file_path: logs/x-BeiChen-{time:YYYYMMDDHH}.log
+  rotation: 1 day
+  retention: 7 days
+  console_output: true
+
+cors:
+  enabled: true
+  origins:
+    - "*"
+  allow_credentials: true
+  allow_methods:
+    - "*"
+  allow_headers:
+    - "*"
+
+database:
+  enabled: false          # 骨架默认关闭；开启后自动建表
+  host: localhost
+  port: 3306
+  user: root
+  password: ""
+  database: beichen
+  pool_size: 5
+  max_overflow: 10
+  pool_timeout: 30
+  pool_recycle: 3600
+  echo: false
+
+redis:
+  enabled: false
+  host: localhost
+  port: 6379
+  user: default
+  password: ""
+  db: 0
+  pool_size: 10
+  max_connections: 50
+  socket_timeout: 5
+
+ai:
+  enabled: true
+  llm:
+    provider: openai_compat
+    base_url: https://api.xiaomimimo.com/v1
+    api_key: ""            # 生产环境用环境变量 AI_LLM_API_KEY 注入，勿写入配置
+    model: mimo-v2.6-pro
+    temperature: 0.7
+    max_tokens: 2048
+    timeout_seconds: 60
+
+agent:
+  enabled: true
+  checkpoint: memory       # memory | redis
+  task_max_retries: 3
+  task_timeout_seconds: 300
+  event_bus_stream: beichen:agent:events
+  agent_specs_module: src.agents
+
+approval:
+  enabled: true            # 广告审批闸门（二期对接）
+  base_url: http://approval-service:8080
+  api_prefix: /api/v1
+  timeout_seconds: 10
+  service_token: ""

@@ -12,13 +12,13 @@
     - YyyXxxProvider           — 具体实现
     - get_xxx_provider()       — 工厂函数（读配置创建实例）
     - get_cached_xxx_provider()— 单例缓存
-子模块：
+子模块（当前骨架）：
     - database: DatabaseProvider → MySqlProvider
-    - cache:    CacheProvider → RedisCacheProvider
-    - email:    EmailProvider → SmtpEmailProvider
-    - sms:      SmsProvider → TencentCloudSmsProvider / AliyunSmsProvider
+    - cache:    CacheProvider → InMemoryCacheProvider / RedisCacheProvider
+    - event_bus:EventBus → InMemoryEventBus / RedisStreamEventBus
+    - llm:      LLMProvider → LangChainLLMProvider / MockLLMProvider
     - http:     HttpProvider → RequestsHttpProvider
-    - storage:  StorageProvider → LocalStorage / S3CompatibleStorage
+二期扩展：email / sms / storage（广告审批系统对接时按同一风格补充）
 """
 
-__all__ = ["cache", "database", "email", "http", "sms", "storage"]
+__all__ = ["cache", "database", "event_bus", "http", "llm"]

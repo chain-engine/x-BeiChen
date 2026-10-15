@@ -138,3 +138,70 @@ class ApiResponseMessage(StrBaseEnum):
     VALIDATION_ERROR = "Validation error", "参数校验错误"
     AUTHENTICATION_FAILED = "Authentication failed", "认证失败"
     AUTHORIZATION_DENIED = "Permission denied", "权限拒绝"
+
+
+# ── Agent 编排域 ──────────────────────────────────────────
+
+
+class AgentType(StrBaseEnum):
+    """Agent 类型（业务 Agent 清单，对齐共识版架构图）。
+
+    当前骨架只落地 monitor（数据监控）与 business_chat（商务对话）两张子图，
+    其余类型为二期占位，注册到 registry 即可扩展。
+    """
+
+    MONITOR = "monitor", "数据监控 Agent"
+    BUSINESS_CHAT = "business_chat", "商务对话 Agent"
+    CUSTOMER = "customer", "客户管理+调度 Agent"
+    CONTENT = "content", "内容创作 Agent"
+    CUSTOMER_SERVICE = "customer_service", "客服与转化 Agent"
+    INSIGHT = "insight", "投放洞察+竞品 Agent"
+
+
+class TaskStatus(StrBaseEnum):
+    """Agent 任务状态机（对齐 agent_tasks.status 列）。
+
+    流转：pending → assigned → running → success
+                          ↘ failed → retry → running
+                                   ↘ abandoned（重试超限，转人工）
+    """
+
+    PENDING = "pending", "待派发"
+    ASSIGNED = "assigned", "已派发"
+    RUNNING = "running", "执行中"
+    SUCCESS = "success", "成功"
+    FAILED = "failed", "失败"
+    RETRY = "retry", "待重试"
+    ABANDONED = "abandoned", "转人工"
+
+
+class EventType(StrBaseEnum):
+    """Agent 协作事件类型（事件总线消息体 type 字段）。"""
+
+    INTENT_DETECTED = "intent_detected", "客户意向"
+    ALERT_RAISED = "alert_raised", "监控告警"
+    SUGGESTION_CREATED = "suggestion_created", "建议单生成"
+    APPROVAL_PASSED = "approval_passed", "审批通过"
+    TASK_FAILED = "task_failed", "任务失败"
+
+
+class ToolPermissionLevel(StrBaseEnum):
+    """工具三级权限（对齐工具注册中心权限校验）。
+
+    read_only      只读工具，Agent 可直接调用（查询数据 / 检索知识）
+    approval_write 写工具，Agent 只能创建审批单，审批通过才执行
+    exec_write     执行写工具，仅审批执行器可调用，不注册给 Agent
+    """
+
+    READ_ONLY = "read_only", "只读"
+    APPROVAL_WRITE = "approval_write", "审批写"
+    EXEC_WRITE = "exec_write", "执行写"
+
+
+class AgentRunStatus(StrBaseEnum):
+    """Agent 运行状态（可观测面板展示）。"""
+
+    IDLE = "idle", "空闲"
+    RUNNING = "running", "运行中"
+    WAITING_HUMAN = "waiting_human", "等待人工"
+    ERROR = "error", "异常"

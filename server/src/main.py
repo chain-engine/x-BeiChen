@@ -1,0 +1,98 @@
+#!/usr/bin/env python3
+"""北辰 x-BeiChen 后端应用入口（FastAPI）。
+
+启动方式：
+    cd server
+    uv sync            # 首次安装依赖
+    uv run uvicorn src.main:app --reload --port 6666
+
+中间件注册说明（本期骨架）：
+    - 已启用：ExceptionHandlingMiddleware（统一异常）+ RequestLoggingMiddleware（访问日志）
+    - 预留不接入：RequestIDMiddleware / AuthMiddleware（鉴权）/ 限流 / 熔断，
+      接入时在下方取消注释即可（实现均已就绪）。
+"""
+
+from __future__ import annotations
+
+import os
+from contextlib import asynccontextmanager
+
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+
+from src.api.router import global_admin_router
+from src.constants import APP_NAME, APP_VERSION
+from src.core.config import settings
+from src.core.exceptions import register_exception_handlers
+from src.core.logger import logger, setup_logging
+from src.core.middleware import ExceptionHandlingMiddleware, RequestLoggingMiddleware
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """应用生命周期：启动初始化 / 关闭清理。"""
+    # 1. 日志初始化
+    setup_logging()
+    logger.info(f"{APP_NAME} 启动中，env={settings.app_env}，debug={settings.server.debug}")
+
+    # 2. Agent 编排注册表就绪检查（懒加载，编译延迟到首次任务）
+    from src.agents.registry import agent_registry
+
+    registered = [str(spec.agent_type) for spec in agent_registry.list_specs()]
+    logger.info(f"Agent 注册表就绪：{registered}")
+
+    # 3. 定时任务（默认关闭：BEICHEN_SCHEDULER_ENABLED=true 时启动监控巡检）
+    if os.environ.get("BEICHEN_SCHEDULER_ENABLED", "false").lower() == "true":
+        from src.scheduling import get_scheduler
+
+        scheduler = get_scheduler()
+        scheduler.register_monitor_job(interval_minutes=15)
+        scheduler.start()
+        logger.info("定时任务已启动（监控巡检 15 分钟/轮）")
+
+    yield
+
+    # 关闭清理
+    if os.environ.get("BEICHEN_SCHEDULER_ENABLED", "false").lower() == "true":
+        from src.scheduling import get_scheduler
+
+        get_scheduler().shutdown()
+    logger.info(f"{APP_NAME} 已关闭")
+
+
+def create_app() -> FastAPI:
+    """构建 FastAPI 应用实例。"""
+    app = FastAPI(
+        title=f"{APP_NAME} API",
+        version=APP_VERSION,
+        description="北辰（BeiChen）Agent 编排平台后端：LangGraph + LangChain 多 Agent 编排，"
+        "上层承载广告联盟商务自动化 SaaS 与出海营销智能平台（一期广告审批系统为独立项目）。",
+        lifespan=lifespan,
+    )
+
+    # ── 中间件（注册顺序：后注册的先执行，倒序匹配）──
+    # 预留（接入时启用）：
+    #   app.add_middleware(RequestIDMiddleware)   # 请求 ID 注入
+    #   app.add_middleware(AuthMiddleware)        # 鉴权（JWT）
+    app.add_middleware(ExceptionHandlingMiddleware)
+    app.add_middleware(RequestLoggingMiddleware)
+    if settings.cors.enabled:
+        app.add_middleware(
+            CORSMiddleware,
+            allow_origins=settings.cors.origins,
+            allow_credentials=settings.cors.allow_credentials,
+            allow_methods=settings.cors.allow_methods,
+            allow_headers=settings.cors.allow_headers,
+        )
+
+    # ── 全局异常处理器 ──
+    register_exception_handlers(app)
+
+    # ── 路由挂载 ──
+    # 管理后台：/api/admin/v1/...（health / auth / agents / monitoring）
+    app.include_router(global_admin_router)
+
+    return app
+
+
+app = create_app()
