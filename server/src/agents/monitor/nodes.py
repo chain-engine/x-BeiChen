@@ -7,13 +7,16 @@
                   alert → alert（异常，告警 + 建议 + 发布事件）
 
 节点职责边界：只负责"干"（数据获取/计算/判定/告警），不负责"派给谁"（顶层编排管）。
-业务逻辑均为 mock/todo，接入真实业务时替换函数内部实现，图结构不变。
+业务规则集中在 monitor/policy.py，事件构造走 agents/events.py 的 build_event。
 """
 
 from __future__ import annotations
 
 from typing import Any
 
+from src.agents.approval import build_money_suggestion
+from src.agents.events import build_event
+from src.agents.monitor.policy import BUDGET_USAGE_ALERT_THRESHOLD
 from src.agents.monitor.state import MonitorState
 from src.agents.tools.registry import tool_registry
 from src.constants import EventType, TaskStatus, ToolPermissionLevel
@@ -21,11 +24,7 @@ from src.core.logger import logger
 
 
 def pull_data_node(state: MonitorState) -> dict[str, Any]:
-    """步骤 1：拉取广告投放数据（只读工具）。
-
-    TODO(业务接入): 从 payload 读 account_id/campaign_id，
-    调用广告平台报表 API 或本地同步库，替换 mock 数据源。
-    """
+    """步骤 1：拉取广告投放数据（只读工具）。"""
     payload = state.get("payload") or {}
     account_id = payload.get("account_id", "acc_default")
     campaign_id = payload.get("campaign_id")
@@ -40,10 +39,7 @@ def pull_data_node(state: MonitorState) -> dict[str, Any]:
 
 
 def calc_metric_node(state: MonitorState) -> dict[str, Any]:
-    """步骤 2：计算指标（消耗 / 转化 / 成本效率）。
-
-    TODO(业务接入): 补充环比、同比、分时/分素材粒度指标。
-    """
+    """步骤 2：计算指标（消耗 / 转化 / 成本效率）。"""
     raw = state.get("raw") or {}
     cost = float(raw.get("cost", 0))
     conversions = int(raw.get("conversions", 0))
@@ -61,23 +57,17 @@ def calc_metric_node(state: MonitorState) -> dict[str, Any]:
 
 
 def judge_node(state: MonitorState) -> dict[str, Any]:
-    """步骤 3：判定异常（阈值规则）。
-
-    TODO(业务接入): 阈值从规则库/RAG 配置读取，或交由 LLM 综合判定；
-    异常类型可细分（消耗飙升 / 转化下跌 / 成本超标）。
-    """
+    """步骤 3：判定异常（阈值规则）。"""
     metric = state.get("metric") or {}
     anomaly = False
     suggestion: dict[str, Any] | None = None
-    # mock 判定规则：预算消耗率 > 60% 视为消耗过快（骨架演示，勿用于生产）
     usage = metric.get("budget_usage_rate", 0)
-    if usage > 60.0:
+    if usage > BUDGET_USAGE_ALERT_THRESHOLD:
         anomaly = True
-        suggestion = {
-            "type": "budget_alert",
-            "message": f"预算消耗已达 {usage}%，建议关注消耗节奏",
-            "involves_money": True,  # 涉及资金写 → 走审批，Agent 不直接执行
-        }
+        suggestion = build_money_suggestion(
+            suggestion_type="budget_alert",
+            message=f"预算消耗已达 {usage}%，建议关注消耗节奏",
+        )
     logger.info(f"[Monitor] judge: anomaly={anomaly} suggestion={suggestion}")
     # normal / alert 两条分支都在此结束判定并把状态归一化为 success：
     # normal → END（不经过 alert_node），必须显式回写 status，否则顶层状态
@@ -107,22 +97,10 @@ def alert_node(state: MonitorState) -> dict[str, Any]:
         campaign_id=(state.get("raw") or {}).get("campaign_id"),
     )
     # 2. 发布双事件（口径约定）：
-    #    ALERT_RAISED      即时告警事实 → 管理后台「告警面板」消费（EventType.ALERT_RAISED）
+    #    ALERT_RAISED      即时告警事实 → 管理后台「告警面板」消费
     #    SUGGESTION_CREATED 处置建议单（涉及资金写）→ 审批闸门消费（二期）
-    events.append(
-        {
-            "type": EventType.ALERT_RAISED,
-            "source": "monitor",
-            "payload": {"metric": state.get("metric"), "suggestion": suggestion},
-        }
-    )
-    events.append(
-        {
-            "type": EventType.SUGGESTION_CREATED,
-            "source": "monitor",
-            "payload": suggestion,
-        }
-    )
+    events.append(build_event(EventType.ALERT_RAISED, "monitor", payload={"metric": state.get("metric"), "suggestion": suggestion}))
+    events.append(build_event(EventType.SUGGESTION_CREATED, "monitor", payload=suggestion))
     result = {
         "metric": state.get("metric"),
         "suggestion": suggestion,
