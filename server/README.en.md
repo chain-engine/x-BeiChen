@@ -158,7 +158,7 @@ server/
 │   │   ├── router.py        # Central routing (/api/admin/...)
 │   │   └── admin/v1/        # Route groups: health / auth(reserved) / agents / monitoring
 │   ├── services/            # Business layer: rules & transaction orchestration (no Request access)
-│   │   ├── agent_orchestrator_service.py  # Task submit/query/human takeover/event persistence
+│   │   ├── agent_task_service.py        # Task submit/resume/query/event persistence (task facade)
 │   │   └── monitoring_service.py         # Patrol trigger / alert query
 │   ├── repositories/        # Data access layer: pure CRUD, no business rules
 │   │   ├── base_repository.py            # Generic CRUD base
@@ -215,7 +215,7 @@ flowchart TB
     end
 
     subgraph BIZ["Business Logic Layer (services/)"]
-        D1["AgentOrchestratorService"]
+        D1["AgentTaskService"]
         D2["MonitoringService"]
     end
 

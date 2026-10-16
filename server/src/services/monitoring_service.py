@@ -15,7 +15,7 @@ from sqlalchemy.orm import Session
 
 from src.constants import AgentType
 from src.core.logger import logger
-from src.services.agent_orchestrator_service import AgentOrchestratorService
+from src.services.agent_task_service import AgentTaskService
 
 
 class MonitoringService:
@@ -23,7 +23,7 @@ class MonitoringService:
 
     def __init__(self, session: Session) -> None:
         self._session = session
-        self._orchestrator = AgentOrchestratorService(session)
+        self._task_service = AgentTaskService(session)
 
     async def trigger_scan(self, account_ids: list[str] | None = None) -> list[int]:
         """触发一轮数据监控巡检：对每个账户提交一个 monitor 任务。
@@ -33,7 +33,7 @@ class MonitoringService:
         targets = account_ids or ["acc_default"]
         task_ids: list[int] = []
         for account_id in targets:
-            task = await self._orchestrator.submit_task(
+            task = await self._task_service.submit_task(
                 task_type=str(AgentType.MONITOR),
                 payload={"account_id": account_id, "scope": "daily"},
             )
@@ -47,4 +47,4 @@ class MonitoringService:
         口径：EventType.ALERT_RAISED（monitor 子图告警分支发布的即时告警事件；
         SUGGESTION_CREATED 为建议单事件，走审批闸门，不属于告警面板）。
         """
-        return self._orchestrator.list_events(event_type="alert_raised", page=page, page_size=page_size)
+        return self._task_service.list_events(event_type="alert_raised", page=page, page_size=page_size)

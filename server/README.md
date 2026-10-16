@@ -159,7 +159,7 @@ server/
 │   │   ├── router.py        # 中央路由（/api/admin/...）
 │   │   └── admin/v1/        # 路由组：health / auth(预留) / agents / monitoring
 │   ├── services/            # 业务逻辑层：规则与事务编排（禁读 Request）
-│   │   ├── agent_orchestrator_service.py  # 任务提交/查询/人工接管/事件落库
+│   │   ├── agent_task_service.py        # 任务提交/恢复/查询/事件落库（任务门面）
 │   │   └── monitoring_service.py         # 巡检触发 / 告警查询
 │   ├── repositories/        # 数据访问层：纯 CRUD，无业务判断
 │   │   ├── base_repository.py            # 通用 CRUD 基类
@@ -216,7 +216,7 @@ flowchart TB
     end
 
     subgraph BIZ["业务逻辑层（services/）"]
-        D1["AgentOrchestratorService"]
+        D1["AgentTaskService"]
         D2["MonitoringService"]
     end
 

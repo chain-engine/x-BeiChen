@@ -4,7 +4,7 @@ API 跨域公共依赖注入模块（北辰 x-BeiChen）。
 
 提供 FastAPI 依赖：
     - get_db: 请求级数据库会话（DB 未启用时明确报 503，提示接入方式）
-    - get_orchestrator_service: 编排服务（任务提交/查询/人工接管）
+    - get_task_service: Agent 任务服务（任务提交/查询/人工接管/事件查询）
     - get_monitoring_service: 监控业务服务
 
 数据流向约束：api 层只做参数解析与依赖装配，业务逻辑全部下沉 services。
@@ -19,7 +19,7 @@ from sqlalchemy.orm import Session
 
 from src.core.config import settings
 from src.infras.database import get_cached_database_provider
-from src.services.agent_orchestrator_service import AgentOrchestratorService
+from src.services.agent_task_service import AgentTaskService
 from src.services.monitoring_service import MonitoringService
 
 
@@ -42,11 +42,11 @@ def get_db() -> Generator[Session, None, None]:
         session.close()
 
 
-def get_orchestrator_service(
+def get_task_service(
     session: Session = Depends(get_db),
-) -> AgentOrchestratorService:
-    """编排服务依赖（任务提交 / 查询 / 人工接管）。"""
-    return AgentOrchestratorService(session)
+) -> AgentTaskService:
+    """Agent 任务服务依赖（任务提交 / 查询 / 人工接管 / 事件查询）。"""
+    return AgentTaskService(session)
 
 
 def get_monitoring_service(
@@ -56,4 +56,4 @@ def get_monitoring_service(
     return MonitoringService(session)
 
 
-__all__ = ["get_db", "get_orchestrator_service", "get_monitoring_service"]
+__all__ = ["get_db", "get_task_service", "get_monitoring_service"]

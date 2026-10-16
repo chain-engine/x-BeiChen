@@ -8,7 +8,7 @@
     POST   /tasks/{task_id}/resume  人工接管恢复（interrupt/resume）
     GET    /events            协作事件列表
 
-数据流向：api 层（本文件）→ services（AgentOrchestratorService）→ repositories/agents。
+数据流向：api 层（本文件）→ services（AgentTaskService）→ repositories/agents。
 """
 
 from __future__ import annotations
@@ -16,11 +16,11 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import JSONResponse
 
-from src.api.dependencies import get_orchestrator_service
+from src.api.dependencies import get_task_service
 from src.api.response import success_response
 from src.agents.registry import agent_registry
 from src.schemas.agent import AgentTaskCreate, AgentTaskResumeIn
-from src.services.agent_orchestrator_service import AgentOrchestratorService
+from src.services.agent_task_service import AgentTaskService
 
 router = APIRouter(tags=["Agent 编排"])
 
@@ -50,7 +50,7 @@ async def list_agents(request: Request) -> JSONResponse:
 async def submit_task(
     body: AgentTaskCreate,
     request: Request,
-    service: AgentOrchestratorService = Depends(get_orchestrator_service),
+    service: AgentTaskService = Depends(get_task_service),
 ) -> JSONResponse:
     """提交一个 Agent 任务（同步执行）。"""
     task = await service.submit_task(
@@ -68,7 +68,7 @@ async def list_tasks(
     task_type: str | None = Query(default=None, description="按任务类型过滤（AgentType）"),
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=20, ge=1, le=100),
-    service: AgentOrchestratorService = Depends(get_orchestrator_service),
+    service: AgentTaskService = Depends(get_task_service),
 ) -> JSONResponse:
     """任务列表（管理后台任务面板）。"""
     items, total = service.list_tasks(status=status, task_type=task_type, page=page, page_size=page_size)
@@ -82,7 +82,7 @@ async def list_tasks(
 async def get_task(
     task_id: int,
     request: Request,
-    service: AgentOrchestratorService = Depends(get_orchestrator_service),
+    service: AgentTaskService = Depends(get_task_service),
 ) -> JSONResponse:
     """任务详情。"""
     task = service.get_task(task_id)
@@ -94,7 +94,7 @@ async def resume_task(
     task_id: int,
     body: AgentTaskResumeIn,
     request: Request,
-    service: AgentOrchestratorService = Depends(get_orchestrator_service),
+    service: AgentTaskService = Depends(get_task_service),
 ) -> JSONResponse:
     """人工接管：恢复被 interrupt 暂停的任务。"""
     task = await service.resume_task(
@@ -112,7 +112,7 @@ async def list_events(
     event_type: str | None = Query(default=None, description="按事件类型过滤（EventType）"),
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=20, ge=1, le=100),
-    service: AgentOrchestratorService = Depends(get_orchestrator_service),
+    service: AgentTaskService = Depends(get_task_service),
 ) -> JSONResponse:
     """协作事件列表（管理后台事件面板 / 审计）。"""
     items, total = service.list_events(event_type=event_type, page=page, page_size=page_size)
