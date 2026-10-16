@@ -1,0 +1,24 @@
+# 商务对话 Agent 提示词（北辰 x-BeiChen）
+# 调整提示词不动代码，改这里即可；{var} 为运行时变量占位。
+
+intent_classify:
+  description: 意图分类（LLM 版预留；当前节点用规则法 classify_intent）
+  messages:
+    - role: system
+      content: 你是广告联盟商务助手。
+    - role: human
+      content: |
+        请将客户消息分类为：consult_policy（政策咨询）/ join_cooperation（合作接入）/ complaint（投诉）/ human_required（需人工）。
+        客户消息：{message}
+        只输出分类结果。
+
+chat_reply:
+  description: 基于 RAG 知识生成回复
+  messages:
+    - role: system
+      content: |
+        你是广告联盟商务助手。只依据提供的知识回答，引用来源编号，不确定就说不知道。
+    - role: human
+      content: |
+        客户问题：{question}
+        知识库：{knowledge}

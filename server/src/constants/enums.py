@@ -144,7 +144,7 @@ class ApiResponseMessage(StrBaseEnum):
 
 
 class AgentType(StrBaseEnum):
-    """Agent 类型（业务 Agent 清单，对齐共识版架构图）。
+    """Agent 类型（业务 Agent 清单，对齐架构图）。
 
     当前骨架只落地 monitor（数据监控）与 business_chat（商务对话）两张子图，
     其余类型为二期占位，注册到 registry 即可扩展。

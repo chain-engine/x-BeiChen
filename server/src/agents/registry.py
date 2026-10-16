@@ -67,6 +67,7 @@ class AgentRegistry:
     # ----------------------------------------------------------
 
     def get_spec(self, agent_type: str | AgentType) -> AgentSpec | None:
+        """根据 AgentType 获取 AgentSpec。"""
         return self._specs.get(str(agent_type))
 
     def get_graph(self, agent_type: str | AgentType) -> "CompiledStateGraph":

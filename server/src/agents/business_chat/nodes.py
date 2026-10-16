@@ -77,18 +77,20 @@ def generate_node_factory(llm_provider: Any) -> Any:
 
         model = llm_provider.get_chat_model()
         if model is not None:
-            from langchain_core.prompts import ChatPromptTemplate
+            from langchain_core.messages import HumanMessage, SystemMessage
 
-            prompt = ChatPromptTemplate.from_messages(
-                [
-                    ("system", "你是广告联盟商务助手。只依据提供的知识回答，引用来源编号，不确定就说不知道。"),
-                    ("human", "客户问题：{question}\n知识库：{knowledge}"),
-                ]
+            from src.templates import render_messages
+
+            messages = render_messages(
+                "chat_reply",
+                question=state.get("message"),
+                knowledge=knowledge or "（无匹配知识）",
             )
-            chain = prompt | model
-            response = chain.invoke(
-                {"question": state.get("message"), "knowledge": knowledge or "（无匹配知识）"}
-            )
+            lc_messages = [
+                SystemMessage(content=m["content"]) if m["role"] == "system" else HumanMessage(content=m["content"])
+                for m in messages
+            ]
+            response = model.invoke(lc_messages)
             reply = str(response.content)
         else:
             reply = f"【mock 回复】已收到您的咨询，可参考：{'; '.join(k.get('title', '') for k in knowledge) or '暂无匹配政策'}。"

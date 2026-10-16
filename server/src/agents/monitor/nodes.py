@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """数据监控 Agent 子图节点（北辰 x-BeiChen）。
 
-子图步骤（共识版）：
+子图步骤（）：
     pull（拉取数据）→ calc（计算指标）→ judge（判定异常）
         └─ 条件边：normal → END（正常，回到拉取进入下一轮）
                   alert → alert（异常，告警 + 建议 + 发布事件）
