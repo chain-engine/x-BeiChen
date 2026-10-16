@@ -150,10 +150,10 @@ flowchart LR
 
 ## 📚 参考资料
 
-- [二期 Agent 系统技术架构设计方案](https://my.feishu.cn/file/RPK6bBcNVouFNYxwPfNcuXNinSg)
-- [北辰管理后台落地架构方案（传统分层修正版）](https://my.feishu.cn/file/VTpRbtcCWoWsq3xDVjNcFX45nlg)
-- [README-x-BeiChen（项目说明文档）](https://my.feishu.cn/file/Lru9bnUtYo0BKTxYcMmcXEz3n4b)
-- [任务型 Agent 实操教程](https://my.feishu.cn/file/HN3DbSzzRo0qHXxEokEcGRjQndd)
+- [Agent 系统技术架构设计方案](docs/agent-system-architecture.md)
+- [北辰管理后台落地架构方案](docs/admin-architecture.md)
+- [北辰 x-BeiChen 项目说明](docs/project-overview.md)
+- [任务型 Agent 实操教程](docs/task-agent-tutorial.md)
 
 ## 📮 联系方式
 

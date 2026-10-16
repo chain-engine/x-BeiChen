@@ -150,10 +150,10 @@ flowchart LR
 
 ## 📚 References
 
-- [Phase-2 Agent System Technical Architecture Design](https://my.feishu.cn/file/RPK6bBcNVouFNYxwPfNcuXNinSg)
-- [BeiChen Admin Console Architecture (traditional layered, revised)](https://my.feishu.cn/file/VTpRbtcCWoWsq3xDVjNcFX45nlg)
-- [README-x-BeiChen (project overview)](https://my.feishu.cn/file/Lru9bnUtYo0BKTxYcMmcXEz3n4b)
-- [Task-based Agent Hands-on Tutorial](https://my.feishu.cn/file/HN3DbSzzRo0qHXxEokEcGRjQndd)
+- [Agent System Technical Architecture Design](docs/agent-system-architecture.md)
+- [BeiChen Admin Console Architecture (traditional layered, revised)](docs/admin-architecture.md)
+- [BeiChen Project Overview](docs/project-overview.md)
+- [Task-based Agent Hands-on Tutorial](docs/task-agent-tutorial.md)
 
 ## 📮 Contact
 
