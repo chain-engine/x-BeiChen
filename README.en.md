@@ -36,7 +36,7 @@ Three engineering rules are enforced: **money operations always pass the approva
 git clone https://github.com/chain-engine/x-BeiChen.git
 cd x-BeiChen/server
 uv sync
-uv run x-BeiChen     # one-shot start: dev hot-reload on, listens on 6666
+uv run x-BeiChen     # one-shot start: dev hot-reload on, listens on 8866
 ```
 
 Detailed requirements, configuration (`.env`), startup options and the orchestration self-check: **[server/README.md](server/README.md)**.

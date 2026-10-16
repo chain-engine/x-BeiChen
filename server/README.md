@@ -67,7 +67,7 @@ cp .env.example .env
 | 参数 | 默认值 | 说明 |
 | --- | --- | --- |
 | `APP_ENV` | `development` | 运行环境：development / testing / production |
-| `SERVER_PORT` | `6666` | 服务监听端口 |
+| `SERVER_PORT` | `8866` | 服务监听端口 |
 | `DATABASE_ENABLED` | `false` | 是否启用 MySQL（启用后自动建表） |
 | `DATABASE_HOST` | `localhost` | MySQL 地址 |
 | `REDIS_ENABLED` | `false` | 是否启用 Redis（缓存 / 事件总线 / 检查点） |
@@ -81,10 +81,10 @@ cp .env.example .env
 **方式一：一键启动（推荐，支持热重载）**
 
 ```bash
-uv run x-BeiChen                # 默认启动：开发环境自动开启热重载，监听 6666
+uv run x-BeiChen                # 默认启动：开发环境自动开启热重载，监听 8866
 uv run x-BeiChen --reload       # 显式开启热重载（修改代码自动重启）
 uv run x-BeiChen --no-reload    # 显式关闭热重载（生产环境）
-uv run x-BeiChen --port 6666    # 自定义监听端口
+uv run x-BeiChen --port 8866    # 自定义监听端口
 ```
 
 > 热重载默认行为跟随运行环境：`development` 且 `debug=true` 时自动开启；显式传 `--reload` / `--no-reload` 可覆盖。
@@ -92,17 +92,17 @@ uv run x-BeiChen --port 6666    # 自定义监听端口
 **方式二：uvicorn 直接启动（本地热重载）**
 
 ```bash
-uv run uvicorn src.main:app --reload --port 6666
+uv run uvicorn src.main:app --reload --port 8866
 ```
 
 **方式三：Docker 容器部署**
 
 ```bash
 docker build -t x-beichen-server .
-docker run -p 6666:6666 --env-file .env x-beichen-server
+docker run -p 8866:8866 --env-file .env x-beichen-server
 ```
 
-启动后访问接口文档：<http://127.0.0.1:6666/docs>
+启动后访问接口文档：<http://127.0.0.1:8866/docs>
 
 ### 6. 常用工程命令
 
@@ -129,7 +129,7 @@ uv run python scripts/verify_agent_flow.py
 提交一个数据监控任务（自动巡检并触发告警建议）：
 
 ```bash
-curl -X POST http://127.0.0.1:6666/api/admin/v1/tasks \
+curl -X POST http://127.0.0.1:8866/api/admin/v1/tasks \
   -H "Content-Type: application/json" \
   -d '{"task_type": "monitor", "payload": {"account_id": "acc_001", "campaign_id": "camp_001"}}'
 ```
@@ -140,7 +140,7 @@ curl -X POST http://127.0.0.1:6666/api/admin/v1/tasks \
 
 | 现象 | 原因与解决 |
 | --- | --- |
-| 端口被占用 `address already in use` | 换端口：`--port 8001`，或 `lsof -i:6666`（macOS/Linux）/ `netstat -ano \| findstr 6666`（Windows）定位占用进程 |
+| 端口被占用 `address already in use` | 换端口：`--port 8001`，或 `lsof -i:8866`（macOS/Linux）/ `netstat -ano \| findstr 8866`（Windows）定位占用进程 |
 | `uv` 命令不存在 | 安装 uv：`pip install uv` 或 `curl -LsSf https://astral.sh/uv/install.sh \| sh` |
 | 业务接口返回 503 | 数据库未启用：设置 `DATABASE_ENABLED=true` 并配置 `DATABASE_HOST/PORT/USER/PASSWORD/DATABASE` |
 | 数据库连接失败 `Can't connect to MySQL server` | 确认 MySQL 已启动、账号有权限；`DATABASE_ENABLED=true` 时应用启动会自动建表，连接失败不阻断启动（接口 503） |
@@ -298,9 +298,9 @@ flowchart TD
 
 | 文档 | 地址 |
 | --- | --- |
-| Swagger 交互式文档 | <http://127.0.0.1:6666/docs> |
-| ReDoc 只读文档 | <http://127.0.0.1:6666/redoc> |
-| OpenAPI JSON 规范 | <http://127.0.0.1:6666/openapi.json> |
+| Swagger 交互式文档 | <http://127.0.0.1:8866/docs> |
+| ReDoc 只读文档 | <http://127.0.0.1:8866/redoc> |
+| OpenAPI JSON 规范 | <http://127.0.0.1:8866/openapi.json> |
 
 核心接口清单（管理后台，前缀 `/api/admin/v1`）：
 

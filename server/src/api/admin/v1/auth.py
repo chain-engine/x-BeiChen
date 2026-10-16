@@ -15,10 +15,10 @@ from fastapi.responses import JSONResponse
 from src.api.response import error_response
 from src.constants import HttpStatusCode
 
-router = APIRouter(prefix="/auth", tags=["auth"])
+router = APIRouter(prefix="/auth", tags=["认证"])
 
 
-@router.post("/login", status_code=501)
+@router.post("/login", status_code=501, summary="登录（预留）")
 async def login(request: Request) -> JSONResponse:
     """登录（预留接口）。
 
@@ -32,7 +32,7 @@ async def login(request: Request) -> JSONResponse:
     )
 
 
-@router.post("/refresh", status_code=501)
+@router.post("/refresh", status_code=501, summary="刷新令牌（预留）")
 async def refresh(request: Request) -> JSONResponse:
     """刷新令牌（预留接口）。"""
     return error_response(

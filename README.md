@@ -36,7 +36,7 @@
 git clone https://github.com/chain-engine/x-BeiChen.git
 cd x-BeiChen/server
 uv sync
-uv run x-BeiChen     # 一键启动：开发环境自动热重载，监听 6666
+uv run x-BeiChen     # 一键启动：开发环境自动热重载，监听 8866
 ```
 
 环境要求、配置说明（`.env`）、启动方式与编排链路自检等详细步骤见 **[server/README.md](server/README.md)**。

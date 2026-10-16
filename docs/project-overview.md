@@ -46,7 +46,7 @@
 git clone https://github.com/chain-engine/x-BeiChen.git
 cd x-BeiChen/server
 uv sync
-uv run x-BeiChen     # 监听 6666，开发模式热重载
+uv run x-BeiChen     # 监听 8866，开发模式热重载
 ```
 
 环境变量见 `server/.env.example`，至少需要配置 MySQL DSN。

@@ -37,7 +37,7 @@ class ServerConfig:
     """服务器配置。"""
 
     host: str = "0.0.0.0"
-    port: int = 6666
+    port: int = 8866
     debug: bool = True
     workers: int = 1
 
@@ -208,7 +208,7 @@ class Settings:
         """返回所有配置段的代码默认值。"""
         return {
             "app_env": Environment.DEVELOPMENT,
-            "server": {"host": "0.0.0.0", "port": 6666, "debug": True, "workers": 1},
+            "server": {"host": "0.0.0.0", "port": 8866, "debug": True, "workers": 1},
             "logging": {
                 "level": "INFO",
                 "format": "console",

@@ -66,7 +66,7 @@ Key parameters:
 | Parameter | Default | Description |
 | --- | --- | --- |
 | `APP_ENV` | `development` | Runtime environment: development / testing / production |
-| `SERVER_PORT` | `6666` | Service port |
+| `SERVER_PORT` | `8866` | Service port |
 | `DATABASE_ENABLED` | `false` | Enable MySQL (auto-creates tables) |
 | `DATABASE_HOST` | `localhost` | MySQL host |
 | `REDIS_ENABLED` | `false` | Enable Redis (cache / event bus / checkpoints) |
@@ -80,10 +80,10 @@ Key parameters:
 **Option A: One-command start (recommended, hot reload)**
 
 ```bash
-uv run x-BeiChen                # Default: hot reload auto-enabled in dev, listens on 6666
+uv run x-BeiChen                # Default: hot reload auto-enabled in dev, listens on 8866
 uv run x-BeiChen --reload       # Explicitly enable hot reload (auto-restart on code change)
 uv run x-BeiChen --no-reload    # Explicitly disable hot reload (production)
-uv run x-BeiChen --port 6666    # Custom listen port
+uv run x-BeiChen --port 8866    # Custom listen port
 ```
 
 > Hot reload follows the environment by default: enabled when `development` and `debug=true`; override with explicit `--reload` / `--no-reload`.
@@ -91,17 +91,17 @@ uv run x-BeiChen --port 6666    # Custom listen port
 **Option B: Direct uvicorn (local hot reload)**
 
 ```bash
-uv run uvicorn src.main:app --reload --port 6666
+uv run uvicorn src.main:app --reload --port 8866
 ```
 
 **Option C: Docker deployment**
 
 ```bash
 docker build -t x-beichen-server .
-docker run -p 6666:6666 --env-file .env x-beichen-server
+docker run -p 8866:8866 --env-file .env x-beichen-server
 ```
 
-API docs: <http://127.0.0.1:6666/docs>
+API docs: <http://127.0.0.1:8866/docs>
 
 ### 6. Common Engineering Commands
 
@@ -128,7 +128,7 @@ uv run python scripts/verify_agent_flow.py
 Submit a data monitoring task (patrol + alert suggestions):
 
 ```bash
-curl -X POST http://127.0.0.1:6666/api/admin/v1/tasks \
+curl -X POST http://127.0.0.1:8866/api/admin/v1/tasks \
   -H "Content-Type: application/json" \
   -d '{"task_type": "monitor", "payload": {"account_id": "acc_001", "campaign_id": "camp_001"}}'
 ```
@@ -139,7 +139,7 @@ The response `events` contains a `suggestion_created` event; when the suggestion
 
 | Symptom | Cause & Solution |
 | --- | --- |
-| `address already in use` | Change port: `--port 8001`, or find the process with `lsof -i:6666` (macOS/Linux) / `netstat -ano \| findstr 6666` (Windows) |
+| `address already in use` | Change port: `--port 8001`, or find the process with `lsof -i:8866` (macOS/Linux) / `netstat -ano \| findstr 8866` (Windows) |
 | `uv` command not found | Install uv: `pip install uv` or `curl -LsSf https://astral.sh/uv/install.sh \| sh` |
 | Business endpoints return 503 | Database disabled: set `DATABASE_ENABLED=true` plus `DATABASE_HOST/PORT/USER/PASSWORD/DATABASE` |
 | `Can't connect to MySQL server` | Confirm MySQL is running and the account has privileges; the app auto-creates tables on startup (idempotent), and a connection failure does not block startup (endpoints return 503) |
@@ -297,9 +297,9 @@ After starting the service:
 
 | Document | URL |
 | --- | --- |
-| Swagger interactive docs | <http://127.0.0.1:6666/docs> |
-| ReDoc read-only docs | <http://127.0.0.1:6666/redoc> |
-| OpenAPI JSON spec | <http://127.0.0.1:6666/openapi.json> |
+| Swagger interactive docs | <http://127.0.0.1:8866/docs> |
+| ReDoc read-only docs | <http://127.0.0.1:8866/redoc> |
+| OpenAPI JSON spec | <http://127.0.0.1:8866/openapi.json> |
 
 Core API list (admin console, prefix `/api/admin/v1`):
 

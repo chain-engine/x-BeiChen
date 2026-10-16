@@ -17,10 +17,10 @@ from src.api.response import success_response
 from src.constants import APP_NAME, APP_VERSION
 from src.core.config import settings
 
-router = APIRouter(tags=["health"])
+router = APIRouter(tags=["健康检查"])
 
 
-@router.get("/health")
+@router.get("/health", summary="服务健康检查")
 async def health(request: Request) -> JSONResponse:
     """服务健康检查：返回各依赖组件的可用状态。"""
     db_status = "disabled"
@@ -61,7 +61,7 @@ async def health(request: Request) -> JSONResponse:
     )
 
 
-@router.get("/version")
+@router.get("/version", summary="应用版本信息")
 async def version(request: Request) -> JSONResponse:
     """应用版本信息。"""
     return success_response(

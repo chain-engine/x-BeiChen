@@ -14,10 +14,10 @@ from src.api.dependencies import get_monitoring_service
 from src.api.response import success_response
 from src.services.monitoring_service import MonitoringService
 
-router = APIRouter(prefix="/monitoring", tags=["monitoring"])
+router = APIRouter(prefix="/monitoring", tags=["数据监控"])
 
 
-@router.post("/scan")
+@router.post("/scan", summary="手动触发监控巡检")
 async def trigger_scan(
     request: Request,
     account_ids: list[str] | None = Body(default=None, description="待巡检账户列表，缺省用默认账户"),
@@ -28,7 +28,7 @@ async def trigger_scan(
     return success_response(data={"task_ids": task_ids, "count": len(task_ids)}, request=request)
 
 
-@router.get("/alerts")
+@router.get("/alerts", summary="告警事件列表")
 async def list_alerts(
     request: Request,
     page: int = Query(default=1, ge=1),

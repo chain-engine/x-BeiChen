@@ -4,7 +4,7 @@
 启动方式：
     cd server
     uv sync            # 首次安装依赖
-    uv run uvicorn src.main:app --reload --port 6666
+    uv run uvicorn src.main:app --reload --port 8866
 
 中间件注册说明（本期骨架）：
     - 已启用：ExceptionHandlingMiddleware（统一异常）+ RequestLoggingMiddleware（访问日志）
@@ -21,7 +21,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from src.api.router import global_admin_router
-from src.constants import APP_NAME, APP_VERSION
+from src.constants import APP_NAME, APP_VERSION, APP_DESCRIPTION
 from src.core.config import settings
 from src.core.exceptions import register_exception_handlers
 from src.core.logger import logger, setup_logging
@@ -75,8 +75,7 @@ def create_app() -> FastAPI:
     app = FastAPI(
         title=f"{APP_NAME} API",
         version=APP_VERSION,
-        description="北辰（BeiChen）Agent 编排平台后端：LangGraph + LangChain 多 Agent 编排，"
-        "上层承载广告联盟商务自动化 SaaS 与出海营销智能平台（一期广告审批系统为独立项目）。",
+        description=APP_DESCRIPTION,
         lifespan=lifespan,
     )
 

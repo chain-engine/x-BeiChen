@@ -2,10 +2,10 @@
 """北辰 x-BeiChen 命令行启动入口。
 
 用法（项目根执行，等价于 uv run x-BeiChen）：
-    uv run x-BeiChen                # 默认启动：开发环境自动开启热重载，读配置 host/port（6666）
+    uv run x-BeiChen                # 默认启动：开发环境自动开启热重载，读配置 host/port（8866）
     uv run x-BeiChen --reload       # 显式开启热重载（修改代码自动重启）
     uv run x-BeiChen --no-reload    # 显式关闭热重载（生产环境）
-    uv run x-BeiChen --port 6666    # 覆盖监听端口
+    uv run x-BeiChen --port 8866    # 覆盖监听端口
     uv run x-BeiChen --host 0.0.0.0 # 覆盖监听地址
 
 热重载约定：
@@ -34,7 +34,7 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         "--port",
         type=int,
         default=None,
-        help="监听端口（默认取配置 settings.server.port，当前为 6666）",
+        help="监听端口（默认取配置 settings.server.port，当前为 8866）",
     )
     parser.add_argument(
         "--reload",

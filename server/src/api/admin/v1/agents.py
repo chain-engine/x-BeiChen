@@ -22,10 +22,10 @@ from src.agents.registry import agent_registry
 from src.schemas.agent import AgentTaskCreate, AgentTaskResumeIn
 from src.services.agent_orchestrator_service import AgentOrchestratorService
 
-router = APIRouter(tags=["agents"])
+router = APIRouter(tags=["Agent 编排"])
 
 
-@router.get("/agents")
+@router.get("/agents", summary="Agent 注册表列表")
 async def list_agents(request: Request) -> JSONResponse:
     """Agent 注册表列表（无需数据库）。"""
     specs = agent_registry.list_specs()
@@ -46,7 +46,7 @@ async def list_agents(request: Request) -> JSONResponse:
     )
 
 
-@router.post("/tasks")
+@router.post("/tasks", summary="提交 Agent 任务")
 async def submit_task(
     body: AgentTaskCreate,
     request: Request,
@@ -61,7 +61,7 @@ async def submit_task(
     return success_response(data=_task_to_dict(task), request=request)
 
 
-@router.get("/tasks")
+@router.get("/tasks", summary="任务列表")
 async def list_tasks(
     request: Request,
     status: str | None = Query(default=None, description="按任务状态过滤（TaskStatus）"),
@@ -78,7 +78,7 @@ async def list_tasks(
     )
 
 
-@router.get("/tasks/{task_id}")
+@router.get("/tasks/{task_id}", summary="任务详情")
 async def get_task(
     task_id: int,
     request: Request,
@@ -89,7 +89,7 @@ async def get_task(
     return success_response(data=_task_to_dict(task), request=request)
 
 
-@router.post("/tasks/{task_id}/resume")
+@router.post("/tasks/{task_id}/resume", summary="恢复人工接管任务")
 async def resume_task(
     task_id: int,
     body: AgentTaskResumeIn,
@@ -106,7 +106,7 @@ async def resume_task(
     return success_response(data=_task_to_dict(task), request=request)
 
 
-@router.get("/events")
+@router.get("/events", summary="协作事件列表")
 async def list_events(
     request: Request,
     event_type: str | None = Query(default=None, description="按事件类型过滤（EventType）"),

@@ -1,6 +1,6 @@
 # 北辰 x-BeiChen 后端镜像（骨架版）
 # 构建：docker build -t x-beichen-server .
-# 运行：docker run -p 6666:6666 --env-file .env x-beichen-server
+# 运行：docker run -p 8866:8866 --env-file .env x-beichen-server
 
 FROM python:3.11-slim
 
@@ -19,7 +19,7 @@ RUN pip install --no-cache-dir uv \
 COPY src ./src
 COPY config.yaml.example ./config.yaml.example
 
-EXPOSE 6666
+EXPOSE 8866
 
 # 生产部署建议：gunicorn + uvicorn worker
-CMD ["uv", "run", "uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "6666"]
+CMD ["uv", "run", "uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8866"]
