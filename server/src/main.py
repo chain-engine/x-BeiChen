@@ -73,10 +73,13 @@ async def lifespan(app: FastAPI):
 def create_app() -> FastAPI:
     """构建 FastAPI 应用实例。"""
     app = FastAPI(
-        title=f"{APP_NAME} API",
+        title=APP_NAME,
         version=APP_VERSION,
         description=APP_DESCRIPTION,
         lifespan=lifespan,
+        docs_url="/docs",
+        redoc_url="/redoc",
+        openapi_url="/openapi.json"
     )
 
     # ── 中间件（注册顺序：后注册的先执行，倒序匹配）──
