@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""客户业务服务（北辰 x-BeiChen，客户管理 + 任务调度 Agent）。
+"""客户业务服务（北辰 x-BeiChen，客户管理+调度 Agent）。
 
 职责边界（api → services → repositories 单向）：
     - 客户快照：列表 / 单客户查询（供子图 fetch 节点消费——"跟进客户状态"数据源）
@@ -53,24 +53,33 @@ class CustomerService:
         return items, total
 
     def get_customer(self, customer_id: str) -> Customer:
-        return self._get_or_404(customer_id)
+        c = self._repo.get_by_customer_id(customer_id)
+        if c is None:
+            raise NotFoundException(f"客户不存在：{customer_id}")
+        return c
 
-    def snapshot(self, customer_ids: list[str] | None = None, scope: str = "full") -> list[dict[str, Any]]:
-        """客户快照列表（dict 风格，供子图 fetch / API 消费）。
+    def list_all_snapshots(self, limit: int = 100) -> list[dict[str, Any]]:
+        """全量客户快照（供子图 fetch / API 消费）。"""
+        customers = self._repo.list_all(limit=limit)
+        return [self._to_snapshot(c) for c in customers]
 
-        scope: full 全量 / due_followup 跟进到期 / by_ids 指定客户。
+    def list_due_followup_snapshots(self, limit: int = 100) -> list[dict[str, Any]]:
+        """跟进到期客户快照（供子图 fetch / API 消费）。
+
         TODO(业务接入): contract_expire_days 二期从合同表关联计算。
         """
-        if scope == "due_followup":
-            customers = self._repo.list_due_followup(now=datetime.now(UTC), limit=100)
-        elif scope == "by_ids" and customer_ids:
-            customers = [c for cid in customer_ids if (c := self._repo.get_by_customer_id(cid)) is not None]
-        else:
-            customers = self._repo.list_all(limit=100)
+        customers = self._repo.list_due_followup(now=datetime.now(UTC), limit=limit)
+        return [self._to_snapshot(c) for c in customers]
+
+    def list_snapshots_by_ids(self, customer_ids: list[str]) -> list[dict[str, Any]]:
+        """按客户 ID 列表获取快照（供子图 fetch / API 消费）。"""
+        customers = [c for cid in customer_ids if (c := self._repo.get_by_customer_id(cid)) is not None]
         return [self._to_snapshot(c) for c in customers]
 
     def get_snapshot(self, customer_id: str) -> dict[str, Any]:
-        c = self._get_or_404(customer_id)
+        c = self._repo.get_by_customer_id(customer_id)
+        if c is None:
+            raise NotFoundException(f"客户不存在：{customer_id}")
         return self._to_snapshot(c)
 
     def _to_snapshot(self, c: Customer) -> dict[str, Any]:
@@ -110,7 +119,9 @@ class CustomerService:
         next_followup_at: datetime | None = None,
     ) -> CustomerFollowup:
         """写入跟进记录并刷新客户跟进节奏。"""
-        c = self._get_or_404(customer_id)
+        c = self._repo.get_by_customer_id(customer_id)
+        if c is None:
+            raise NotFoundException(f"客户不存在：{customer_id}")
         followup = CustomerFollowup(
             customer_id=customer_id,
             action=action,
@@ -121,37 +132,17 @@ class CustomerService:
         self._followup_repo.add(followup)
         c.last_followup_at = datetime.now(UTC)
         c.next_followup_at = followup.next_followup_at
-        self._emit(EventType.FOLLOWUP_CREATED, "customer", {
+
+        # 客户域事件双写：agent_events 落库 + EventBus publish（失败仅记日志）
+        payload = {
             "customer_id": customer_id,
             "action": action,
             "content": followup.content,
-        })
-        self._repo.commit()
-        logger.info(f"[CustomerService] 跟进记录 {customer_id}: {action}")
-        return followup
-
-    def list_followups(self, customer_id: str, page: int = 1, page_size: int = 20) -> tuple[list[CustomerFollowup], int]:
-        offset = (page - 1) * page_size
-        items = self._followup_repo.list_by_customer(customer_id, offset=offset, limit=page_size)
-        total = self._followup_repo.count(CustomerFollowup.customer_id == customer_id)
-        return items, total
-
-    # ----------------------------------------------------------
-    # 内部
-    # ----------------------------------------------------------
-
-    def _get_or_404(self, customer_id: str) -> Customer:
-        c = self._repo.get_by_customer_id(customer_id)
-        if c is None:
-            raise NotFoundException(f"客户不存在：{customer_id}")
-        return c
-
-    def _emit(self, event_type: EventType, source: str, payload: dict[str, Any], target: str | None = None) -> None:
-        """客户域事件双写：agent_events 落库 + EventBus publish（失败仅记日志）。"""
+        }
         self._session.add(AgentEvent(
-            event_type=event_type,
-            source_agent=source,
-            target_agent=target,
+            event_type=EventType.FOLLOWUP_CREATED,
+            source_agent="customer",
+            target_agent=None,
             payload=payload,
             status="recorded",
         ))
@@ -165,11 +156,21 @@ class CustomerService:
             except RuntimeError:
                 loop = None
             if loop is not None:
-                loop.create_task(self._event_bus.publish(EventMessage(event_type=event_type, payload=payload, source_agent=source, target_agent=target)))
+                loop.create_task(self._event_bus.publish(EventMessage(event_type=EventType.FOLLOWUP_CREATED, payload=payload, source_agent="customer", target_agent=None)))
             else:
-                asyncio.run(self._event_bus.publish(EventMessage(event_type=event_type, payload=payload, source_agent=source, target_agent=target)))
+                asyncio.run(self._event_bus.publish(EventMessage(event_type=EventType.FOLLOWUP_CREATED, payload=payload, source_agent="customer", target_agent=None)))
         except Exception as exc:
             logger.exception(f"[CustomerService] 事件发布失败（已落库留痕）：{exc}")
+
+        self._repo.commit()
+        logger.info(f"[CustomerService] 跟进记录 {customer_id}: {action}")
+        return followup
+
+    def list_followups(self, customer_id: str, page: int = 1, page_size: int = 20) -> tuple[list[CustomerFollowup], int]:
+        offset = (page - 1) * page_size
+        items = self._followup_repo.list_by_customer(customer_id, offset=offset, limit=page_size)
+        total = self._followup_repo.count(CustomerFollowup.customer_id == customer_id)
+        return items, total
 
 
 __all__ = ["CustomerService"]

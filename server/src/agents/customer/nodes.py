@@ -40,15 +40,20 @@ def fetch_customers_node(state: dict[str, Any]) -> dict[str, Any]:
         provider = get_cached_database_provider()
         with provider.session() as session:
             service = CustomerService(session)
-            customers = service.snapshot(customer_ids=customer_ids, scope=scope)
+            if scope == "due_followup":
+                customers = service.list_due_followup_snapshots()
+            elif scope == "by_ids" and customer_ids:
+                customers = service.list_snapshots_by_ids(customer_ids)
+            else:
+                customers = service.list_all_snapshots()
     else:
         # 离线自检：工具 mock 快照
-        customers = tool_registry.invoke(
-            "crm.list_customer_snapshots",
-            ToolPermissionLevel.READ_ONLY,
-            scope=scope,
-            customer_ids=customer_ids,
-        )
+        if scope == "due_followup":
+            customers = tool_registry.invoke("crm.list_due_followup_snapshots", ToolPermissionLevel.READ_ONLY)
+        elif scope == "by_ids" and customer_ids:
+            customers = tool_registry.invoke("crm.list_customer_snapshots_by_ids", ToolPermissionLevel.READ_ONLY, customer_ids=customer_ids)
+        else:
+            customers = tool_registry.invoke("crm.list_all_customer_snapshots", ToolPermissionLevel.READ_ONLY)
     logger.info(f"[Customer] fetch: scope={scope} customers={len(customers)} db={settings.database.enabled}")
     return {"customers": customers, "scope": scope}
 

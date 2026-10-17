@@ -2,7 +2,7 @@
 """客户管理工具包（北辰 x-BeiChen，客户管理 + 任务调度 Agent）。
 
 功能性 Agent 定位：工具中心只为"跟进客户状态"提供只读查询
-（crm.list_customer_snapshots / crm.get_customer_snapshot）。
+（crm.list_all_customer_snapshots / crm.list_due_followup_snapshots / crm.list_customer_snapshots_by_ids / crm.get_customer_snapshot）。
     - 跟进判定 / 报表由 policy 确定性规则完成（不进工具中心）
     - 客户数据管理（CRUD / 状态迁移 / 续约审批）不在本 Agent 职责内（二期 CRM 模块）
 
@@ -49,24 +49,25 @@ def _build_mock_customers() -> list[dict[str, Any]]:
     ]
 
 
-def list_customer_snapshots(scope: str = "full", customer_ids: list[str] | None = None) -> list[dict[str, Any]]:
-    """拉取客户快照列表（只读）。
+def list_all_customer_snapshots() -> list[dict[str, Any]]:
+    """全量客户快照（只读，离线自检 mock）。"""
+    logger.info("[Crm] list_all_customer_snapshots")
+    return _build_mock_customers()
 
-    Args:
-        scope: full 全量 / due_followup 跟进到期 / by_ids 指定客户
-        customer_ids: scope=by_ids 时传入
 
-    TODO(业务接入): DB 启用时 fetch 节点直接读 CustomerService.snapshot（真实库），
-    本工具仅用于离线自检 mock。
-    """
-    logger.info(f"[Crm] list_customer_snapshots scope={scope} ids={customer_ids}")
+def list_due_followup_snapshots() -> list[dict[str, Any]]:
+    """跟进到期客户快照（只读，离线自检 mock）。"""
+    logger.info("[Crm] list_due_followup_snapshots")
+    now = datetime.now(UTC)
     customers = _build_mock_customers()
-    if scope == "due_followup":
-        now = datetime.now(UTC)
-        customers = [c for c in customers if c.get("next_followup_at") and c["next_followup_at"] < now]
-    elif scope == "by_ids" and customer_ids:
-        customers = [c for c in customers if c.get("customer_id") in customer_ids]
-    return customers
+    return [c for c in customers if c.get("next_followup_at") and c["next_followup_at"] < now]
+
+
+def list_customer_snapshots_by_ids(customer_ids: list[str]) -> list[dict[str, Any]]:
+    """按客户 ID 列表获取快照（只读，离线自检 mock）。"""
+    logger.info(f"[Crm] list_customer_snapshots_by_ids ids={customer_ids}")
+    customers = _build_mock_customers()
+    return [c for c in customers if c.get("customer_id") in customer_ids]
 
 
 def get_customer_snapshot(customer_id: str) -> dict[str, Any] | None:
@@ -80,11 +81,13 @@ def get_customer_snapshot(customer_id: str) -> dict[str, Any] | None:
 
 def register_crm_tools() -> None:
     """注册客户管理工具（幂等）。"""
-    if tool_registry.get("crm.list_customer_snapshots") is None:
-        tool_registry.register(ToolSpec(name="crm.list_customer_snapshots", description="拉取客户快照列表（只读）", func=list_customer_snapshots, permission_level=ToolPermissionLevel.READ_ONLY))
+    if tool_registry.get("crm.list_all_customer_snapshots") is None:
+        tool_registry.register(ToolSpec(name="crm.list_all_customer_snapshots", description="全量客户快照（只读）", func=list_all_customer_snapshots, permission_level=ToolPermissionLevel.READ_ONLY))
+        tool_registry.register(ToolSpec(name="crm.list_due_followup_snapshots", description="跟进到期客户快照（只读）", func=list_due_followup_snapshots, permission_level=ToolPermissionLevel.READ_ONLY))
+        tool_registry.register(ToolSpec(name="crm.list_customer_snapshots_by_ids", description="按客户ID列表获取快照（只读）", func=list_customer_snapshots_by_ids, permission_level=ToolPermissionLevel.READ_ONLY))
         tool_registry.register(ToolSpec(name="crm.get_customer_snapshot", description="查询单个客户快照（只读）", func=get_customer_snapshot, permission_level=ToolPermissionLevel.READ_ONLY))
 
 
 register_crm_tools()
 
-__all__ = ["list_customer_snapshots", "get_customer_snapshot", "register_crm_tools"]
+__all__ = ["list_all_customer_snapshots", "list_due_followup_snapshots", "list_customer_snapshots_by_ids", "get_customer_snapshot", "register_crm_tools"]

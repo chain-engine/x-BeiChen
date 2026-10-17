@@ -29,15 +29,23 @@ if TYPE_CHECKING:
 def build_customer_graph() -> "CompiledStateGraph":
     """构建客户管理 + 任务调度 Agent 子图（已编译）。"""
     graph = StateGraph(CustomerState)
+    # 增加拉取客户快照节点
     graph.add_node("fetch", fetch_customers_node)
+    # 增加状态机判定节点
     graph.add_node("evaluate", evaluate_status_node)
+    # 增加编排任务节点
     graph.add_node("compose", compose_tasks_node)
+    # 增加确定性执行 + 事件 + 落库节点  
     graph.add_node("dispatch", dispatch_node)
-
+    # 增加开始节点到拉取客户快照节点的边
     graph.add_edge(START, "fetch")
+    # 增加拉取客户快照节点到状态机判定节点的边
     graph.add_edge("fetch", "evaluate")
+    # 增加状态机判定节点到编排任务节点的边
     graph.add_edge("evaluate", "compose")
+    # 增加编排任务节点到确定性执行 + 事件 + 落库节点的边
     graph.add_edge("compose", "dispatch")
+    # 增加确定性执行 + 事件 + 落库节点到结束节点的边
     graph.add_edge("dispatch", END)
 
     return graph.compile()

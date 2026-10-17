@@ -1,10 +1,10 @@
-"""定时任务层（北辰 x-BeiChen）。
+"""任务调度层（北辰 x-BeiChen）。
 
-- scheduler.py:调度器（APScheduler AsyncIOScheduler 单例）
-- jobs.py:     任务定义（监控巡检等，独立可测试）
+- scheduler.py:  通用调度器（APScheduler AsyncIOScheduler 单例，只提供注册原语）
+- bootstrap.py: 默认任务装配（业务 job 函数引用 + trigger 参数在此注入）
+- jobs.py:       业务任务钩子（独立可测试，被 bootstrap 引用）
 """
 
-from src.scheduling.jobs import monitor_scan_job
 from src.scheduling.scheduler import Scheduler, get_scheduler
 
-__all__ = ["Scheduler", "get_scheduler", "monitor_scan_job"]
+__all__ = ["Scheduler", "get_scheduler"]

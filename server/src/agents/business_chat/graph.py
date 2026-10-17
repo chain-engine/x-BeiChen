@@ -40,19 +40,28 @@ def build_business_chat_graph(llm_provider: Any | None = None) -> "CompiledState
         llm_provider = get_llm_provider()
 
     graph = StateGraph(ChatState)
+    # 增加意图分类节点
     graph.add_node("intent", classify_intent_node)
+    # 增加检索节点
     graph.add_node("retrieve", retrieve_node)
+    # 增加生成节点
     graph.add_node("generate", generate_node_factory(llm_provider))
+    # 增加转人工节点
     graph.add_node("transfer", transfer_node)
 
+    # 增加开始节点到意图分类节点的边
     graph.add_edge(START, "intent")
+    # 增加意图分类节点到检索节点的边
     graph.add_edge("intent", "retrieve")
+    # 增加检索节点到生成节点的边
     graph.add_edge("retrieve", "generate")
+    # 增加生成节点到转人工节点的边
     graph.add_conditional_edges(
         "generate",
         route_generate,
         {"transfer": "transfer", "end": END},
     )
+    # 增加转人工节点到结束节点的边
     graph.add_edge("transfer", END)
 
     return graph.compile()

@@ -35,7 +35,7 @@ class MonitoringService:
         for account_id in targets:
             task = await self._task_service.submit_task(
                 task_type=str(AgentType.MONITOR),
-                payload={"account_id": account_id, "scope": "daily"},
+                payload={"account_id": account_id},
             )
             task_ids.append(task.id)
             logger.info(f"[MonitoringService] 巡检任务已提交：id={task.id} account={account_id}")

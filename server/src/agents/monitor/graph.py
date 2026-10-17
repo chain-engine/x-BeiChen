@@ -8,7 +8,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from langgraph.graph import END, START, StateGraph
 
@@ -32,14 +32,19 @@ def route_judge(state: MonitorState) -> str:
 def build_monitor_graph() -> "CompiledStateGraph":
     """构建数据监控 Agent 子图（已编译）。"""
     graph = StateGraph(MonitorState)
+
+    # 节点：拉取投放数据 → 计算指标 → 阈值判定 → 告警
     graph.add_node("pull", pull_data_node)
     graph.add_node("calc", calc_metric_node)
     graph.add_node("judge", judge_node)
     graph.add_node("alert", alert_node)
 
+    # 主干线性边
     graph.add_edge(START, "pull")
     graph.add_edge("pull", "calc")
     graph.add_edge("calc", "judge")
+
+    # 条件边：正常直接结束，异常进入告警节点
     graph.add_conditional_edges("judge", route_judge, {"normal": END, "alert": "alert"})
     graph.add_edge("alert", END)
 

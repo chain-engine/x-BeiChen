@@ -107,10 +107,12 @@ def build_orchestrator_graph(
         route_map[key] = key
         logger.info(f"[Orchestrator] 子图节点已挂载：{key}")
 
+    # 增加聚合节点
     graph.add_node("aggregate", aggregate_node)
 
+    # 增加路由边
     graph.add_edge(START, "route")
-    # 动态路由：route 之后按 target_agent 分发到对应子图节点
+    # 增加条件路由边：route 之后按 target_agent 分发到对应子图节点
     graph.add_conditional_edges("route", route_to_target, route_map)
     # 每个子图节点结束后汇入聚合节点
     for key in route_map:

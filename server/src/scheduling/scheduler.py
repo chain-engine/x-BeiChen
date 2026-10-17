@@ -1,87 +1,127 @@
 #!/usr/bin/env python3
-"""定时任务调度器（北辰 x-BeiChen）。
+"""通用任务调度器（北辰 x-BeiChen）。
 
-基于 APScheduler AsyncIOScheduler：
-    - 注册周期性任务（如监控巡检：每 N 分钟触发一轮）
-    - 与 FastAPI lifespan 联动：start() / shutdown()
-默认不自动启动（由 main.py 按配置注册），避免骨架阶段空转。
+基于 APScheduler AsyncIOScheduler 的纯调度容器：只负责按 trigger 注册 / 启动 /
+关闭可调用对象，**不 import、不认识任何具体业务 job**。业务 job 以函数引用在
+装配层（scheduling/bootstrap.py）注入，新增/调整任务不改本类。
+
+支持三类 trigger：
+    - interval 周期（add_interval）：固定间隔重复跑
+    - cron 定点（add_cron）：固定时刻跑
+    - date 一次性（引擎已支持，本项目暂未使用）
+
+与 FastAPI lifespan 联动：start() / shutdown()；默认不自动启动
+（由 main.py 按 BEICHEN_SCHEDULER_ENABLED 开关注册），避免骨架阶段空转。
 """
 
 from __future__ import annotations
 
+from collections.abc import Callable
+from typing import Any
+
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
-from src.core.config import settings
 from src.core.logger import logger
 
 
 class Scheduler:
-    """应用级定时任务调度器（单例）。"""
+    """通用任务调度器（单例容器）。
+
+    只暴露注册原语与生命周期，不感知业务；start() 之后由 APScheduler
+    按各 job 自己的 trigger 到点回调。
+    """
 
     def __init__(self) -> None:
         self._scheduler = AsyncIOScheduler(timezone="Asia/Shanghai")
-        self._jobs_registered = False
 
-    def register_monitor_job(self, interval_minutes: int = 15) -> None:
-        """注册数据监控巡检任务（周期性触发 monitor Agent）。"""
-        from src.scheduling.jobs import monitor_scan_job
+    # ----------------------------------------------------------
+    # 注册原语（通用，业务 job 以函数引用传入）
+    # ----------------------------------------------------------
 
-        if not self._scheduler.get_job("monitor_scan"):
-            self._scheduler.add_job(
-                monitor_scan_job,
-                trigger="interval",
-                minutes=interval_minutes,
-                id="monitor_scan",
-                name="数据监控巡检",
-                replace_existing=True,
-            )
-            logger.info(f"[Scheduler] 注册监控巡检任务：每 {interval_minutes} 分钟")
+    def add_interval(
+        self,
+        func: Callable,
+        *,
+        job_id: str,
+        name: str,
+        minutes: int = 0,
+        hours: int = 0,
+        kwargs: dict[str, Any] | None = None,
+    ) -> None:
+        """注册周期任务（interval）：幂等，已存在同 id 则跳过。
 
-    def register_customer_jobs(self, followup_interval_hours: int = 6, report_hour: str = "08:00") -> None:
-        """注册客户管理 + 任务调度任务（跟进巡检 + 定时报表）。
-
-        - followup 巡检：interval（默认每 6 小时一轮）
-        - 日报：cron（默认每天 08:00）
-        TODO(业务接入): 周报 cron（如每周一 09:00）按需追加。
+        Args:
+            func: job 可调用对象（业务钩子，由装配层传入）
+            job_id: 唯一任务标识（去重键）
+            name: 任务显示名（日志/面板）
+            minutes: 间隔分钟（与 hours 至少给一个）
+            hours: 间隔小时
+            kwargs: 透传给 job 的固定参数
         """
-        from src.scheduling.jobs import customer_followup_job, customer_report_job
+        if self._scheduler.get_job(job_id) is not None:
+            return
+        self._scheduler.add_job(
+            func,
+            trigger="interval",
+            minutes=minutes,
+            hours=hours,
+            id=job_id,
+            name=name,
+            kwargs=kwargs or {},
+            replace_existing=True,
+        )
+        logger.info(f"[Scheduler] 注册周期任务：{name}（{job_id}）间隔 {hours}h/{minutes}min")
 
-        if not self._scheduler.get_job("customer_followup"):
-            self._scheduler.add_job(
-                customer_followup_job,
-                trigger="interval",
-                hours=followup_interval_hours,
-                id="customer_followup",
-                name="客户跟进巡检",
-                replace_existing=True,
-            )
-            logger.info(f"[Scheduler] 注册客户跟进巡检：每 {followup_interval_hours} 小时")
-        if not self._scheduler.get_job("customer_report"):
-            hour, minute = (int(x) for x in report_hour.split(":"))
-            self._scheduler.add_job(
-                customer_report_job,
-                trigger="cron",
-                hour=hour,
-                minute=minute,
-                id="customer_report",
-                name="客户日报",
-                kwargs={"report_type": "daily"},
-                replace_existing=True,
-            )
-            logger.info(f"[Scheduler] 注册客户日报：每天 {report_hour}")
+    def add_cron(
+        self,
+        func: Callable,
+        *,
+        job_id: str,
+        name: str,
+        hour: int,
+        minute: int = 0,
+        kwargs: dict[str, Any] | None = None,
+    ) -> None:
+        """注册定点任务（cron）：每天固定时刻跑，幂等，已存在同 id 则跳过。
+
+        Args:
+            func: job 可调用对象（业务钩子，由装配层传入）
+            job_id: 唯一任务标识（去重键）
+            name: 任务显示名（日志/面板）
+            hour: 定点小时（24h 制）
+            minute: 定点分钟
+            kwargs: 透传给 job 的固定参数
+        """
+        if self._scheduler.get_job(job_id) is not None:
+            return
+        self._scheduler.add_job(
+            func,
+            trigger="cron",
+            hour=hour,
+            minute=minute,
+            id=job_id,
+            name=name,
+            kwargs=kwargs or {},
+            replace_existing=True,
+        )
+        logger.info(f"[Scheduler] 注册定点任务：{name}（{job_id}）每天 {hour:02d}:{minute:02d}")
+
+    # ----------------------------------------------------------
+    # 生命周期
+    # ----------------------------------------------------------
 
     def start(self) -> None:
         """启动调度器（幂等）。"""
         if self._scheduler.running:
             return
         self._scheduler.start()
-        logger.info("[Scheduler] 定时任务调度器已启动")
+        logger.info("[Scheduler] 任务调度器已启动")
 
     def shutdown(self) -> None:
         """关闭调度器（幂等）。"""
         if self._scheduler.running:
             self._scheduler.shutdown(wait=False)
-            logger.info("[Scheduler] 定时任务调度器已关闭")
+            logger.info("[Scheduler] 任务调度器已关闭")
 
     @property
     def running(self) -> bool:
@@ -92,7 +132,7 @@ _scheduler: Scheduler | None = None
 
 
 def get_scheduler() -> Scheduler:
-    """调度器单例。"""
+    """获取调度器单例。"""
     global _scheduler
     if _scheduler is None:
         _scheduler = Scheduler()

@@ -11,7 +11,7 @@
 """
 
 from src.agents.tools.ads import adjust_budget, get_campaign_stats, pause_campaign
-from src.agents.tools.crm import get_customer_snapshot, list_customer_snapshots
+from src.agents.tools.crm import get_customer_snapshot, list_all_customer_snapshots, list_customer_snapshots_by_ids, list_due_followup_snapshots
 from src.agents.tools.notification import send_alert
 from src.agents.tools.rag import retrieve
 from src.agents.tools.report import render_report
@@ -24,7 +24,9 @@ __all__ = [
     "get_campaign_stats",
     "adjust_budget",
     "pause_campaign",
-    "list_customer_snapshots",
+    "list_all_customer_snapshots",
+    "list_due_followup_snapshots",
+    "list_customer_snapshots_by_ids",
     "get_customer_snapshot",
     "render_report",
     "retrieve",

@@ -122,11 +122,64 @@ Agent 编排核心（LangGraph 顶层图 + 业务子图嵌套）：
 ```mermaid
 flowchart LR
     START --> ROUTE["route（映射表路由）"]
-    ROUTE -->|"target_agent=monitor"| SUB1["monitor 子图<br/>pull → calc → judge"]
-    ROUTE -->|"target_agent=business_chat"| SUB2["business_chat 子图<br/>intent → retrieve → generate"]
+    ROUTE -->|"target_agent=monitor"| SUB1["monitor 子图<br/>pull → calc → judge（条件分支）"]
+    ROUTE -->|"target_agent=business_chat"| SUB2["business_chat 子图<br/>intent → retrieve → generate（interrupt）"]
+    ROUTE -->|"target_agent=customer"| SUB3["customer 子图<br/>fetch → evaluate → compose → dispatch"]
     SUB1 --> AGG["aggregate（聚合）"]
     SUB2 --> AGG
+    SUB3 --> AGG
     AGG --> END
+```
+
+### 已注册 Agent 子图工作流（server 当前交付）
+
+三者均为**固定编排的条件分支流程**（图路由由代码写死），不是 LLM 自主决策的纯智能体；差异在于节点内部是否调用 LLM。
+
+| Agent | 类型 | 是否用 LLM | 关键机制 |
+| --- | --- | --- | --- |
+| monitor 数据监控 | 纯规则（阈值判定） | 否 | 条件边：正常结束 / 异常告警 |
+| business_chat 商务对话 | 固定编排 + LLM | 是（生成节点） | 规则意图分类 + RAG + interrupt 转人工 |
+| customer 客户管理+任务调度 | 纯规则（确定性） | 否 | 线性四节点，规则判定 + 模板报表 |
+
+#### 1. monitor 数据监控 Agent（纯规则，无 LLM）
+
+定时巡检广告投放数据，预算消耗率超阈值即告警；涉及资金写不直接执行，`SUGGESTION_CREATED` 事件交审批闸门（二期）。
+
+```mermaid
+flowchart TB
+    START([START]) --> PULL["pull 拉取投放数据<br/>ads.get_campaign_stats（只读工具）"]
+    PULL --> CALC["calc 计算指标<br/>成本 / 转化 / CPC / 转化率 / 预算消耗率"]
+    CALC --> JUDGE{"judge 阈值判定<br/>预算消耗率 > 60% ?"}
+    JUDGE -- "正常 normal" --> END_OK([END])
+    JUDGE -- "异常 alert" --> ALERT["alert 告警 + 建议<br/>即时告警 notification.send_alert<br/>事件 ALERT_RAISED + SUGGESTION_CREATED"]
+    ALERT --> END_ALERT([END])
+```
+
+#### 2. business_chat 商务对话 Agent（固定编排 + LLM）
+
+规则关键词识别意图，RAG 检索政策后由 LLM 生成回复；命中人工关键词在 generate 节点 `interrupt()` 暂停，人工 `resume` 后续跑。
+
+```mermaid
+flowchart TB
+    START([START]) --> INTENT["intent 意图识别（规则关键词）<br/>命中 人工/投诉/退款/经理 → human_required"]
+    INTENT --> RETRIEVE["retrieve RAG 检索<br/>rag.retrieve top_k=3，政策/FAQ，带来源 sources"]
+    RETRIEVE --> GEN{"generate 生成回复<br/>human_required → interrupt 暂停等待人工"}
+    GEN -- "need_human 转人工" --> TRANSFER["transfer 转人工<br/>记录人工接管事件"]
+    TRANSFER --> END_HUMAN([END])
+    GEN -- "normal 咨询政策" --> END_BOT([END：LLM 基于 RAG 生成回复])
+```
+
+#### 3. customer 客户管理 + 任务调度 Agent（纯规则线性，无 LLM）
+
+确定性规则判定跟进动作并落库，`scope=report` 时额外产出模板聚合日报；不生成审批建议，续约资金动作归审批闸门。
+
+```mermaid
+flowchart LR
+    START([START]) --> FETCH["fetch 拉客户快照<br/>scope=due_followup / by_ids / all"]
+    FETCH --> EVAL["evaluate 跟进判定（规则引擎）<br/>跟进到期 / 沉睡预警 30 天 / 合同到期 30 天"]
+    EVAL --> COMPOSE["compose 编排任务<br/>followup 任务；scope=report 追加报表任务"]
+    COMPOSE --> DISPATCH["dispatch 确定性执行<br/>FOLLOWUP_CREATED 落库 / REPORT_GENERATED 模板聚合"]
+    DISPATCH --> END([END])
 ```
 
 ## 🛠️ 技术栈
