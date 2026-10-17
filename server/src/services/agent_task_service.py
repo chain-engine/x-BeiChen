@@ -225,3 +225,10 @@ class AgentTaskService:
             items = self._event_repo.list_recent(offset=offset, limit=page_size)
             total = self._event_repo.count()
         return items, total
+
+    def get_event(self, event_id: int) -> AgentEvent:
+        """按 ID 取单条协作事件（事件详情 / 审计面板），不存在抛 404。"""
+        event = self._event_repo.get(event_id)
+        if event is None:
+            raise NotFoundException(f"协作事件不存在：{event_id}")
+        return event

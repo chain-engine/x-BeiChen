@@ -7,6 +7,7 @@
     health      健康/版本探针
     auth        认证（预留，二期 JWT+RBAC）
     agents      Agent 编排（任务提交/查询/人工接管/事件）
+    chat        商务对话（发消息 / 人工接管回复）
     monitoring  数据监控（巡检触发/告警）
     customers   客户管理（CRUD/状态迁移/跟进/报表）
 """
@@ -16,6 +17,7 @@ from fastapi import APIRouter
 from src.api.admin.v1 import (
     agents,
     auth,
+    chat,
     customers,
     health,
     monitoring,
@@ -33,6 +35,9 @@ v1_router.include_router(auth.router)
 
 # Agent 编排
 v1_router.include_router(agents.router)
+
+# 商务对话
+v1_router.include_router(chat.router)
 
 # 数据监控
 v1_router.include_router(monitoring.router)

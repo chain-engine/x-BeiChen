@@ -7,6 +7,7 @@
     GET    /tasks/{task_id}   任务详情
     POST   /tasks/{task_id}/resume  人工接管恢复（interrupt/resume）
     GET    /events            协作事件列表
+    GET    /events/{event_id} 协作事件详情
 
 数据流向：api 层（本文件）→ services（AgentTaskService）→ repositories/agents。
 """
@@ -118,23 +119,37 @@ async def list_events(
     items, total = service.list_events(event_type=event_type, page=page, page_size=page_size)
     return success_response(
         data={
-            "items": [
-                {
-                    "id": ev.id,
-                    "event_type": ev.event_type,
-                    "source_agent": ev.source_agent,
-                    "target_agent": ev.target_agent,
-                    "payload": ev.payload,
-                    "created_at": ev.created_at.isoformat() if ev.created_at else None,
-                }
-                for ev in items
-            ],
+            "items": [_event_to_dict(ev) for ev in items],
             "total": total,
             "page": page,
             "page_size": page_size,
         },
         request=request,
     )
+
+
+@router.get("/events/{event_id}", summary="协作事件详情")
+async def get_event(
+    event_id: int,
+    request: Request,
+    service: AgentTaskService = Depends(get_task_service),
+) -> JSONResponse:
+    """单条协作事件详情（含完整 payload，审计面板查看）。"""
+    event = service.get_event(event_id)
+    return success_response(data=_event_to_dict(event), request=request)
+
+
+def _event_to_dict(ev) -> dict:
+    """协作事件实体 → 响应字典（列表 / 详情复用）。"""
+    return {
+        "id": ev.id,
+        "event_type": ev.event_type,
+        "source_agent": ev.source_agent,
+        "target_agent": ev.target_agent,
+        "payload": ev.payload,
+        "status": ev.status,
+        "created_at": ev.created_at.isoformat() if ev.created_at else None,
+    }
 
 
 def _task_to_dict(task) -> dict:

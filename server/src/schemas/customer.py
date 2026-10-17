@@ -14,10 +14,21 @@ from pydantic import BaseModel, Field
 
 
 class ReportTriggerIn(BaseModel):
-    """报表触发入参（自动出报表）。"""
+    """报表触发入参（自动出报表，走 ReportService 确定性模板聚合，不经子图）。"""
 
     report_type: str = Field(default="daily", pattern="^(daily|weekly)$", description="日报/周报")
     customer_ids: list[str] | None = Field(default=None, description="指定客户（空=全量）")
+
+
+class CustomerTaskIn(BaseModel):
+    """提交客户管理 + 任务调度 Agent 任务入参（POST /customers/run，走 customer 子图）。"""
+
+    scope: str = Field(
+        default="due_followup",
+        pattern="^(due_followup|by_ids|full|report)$",
+        description="巡检范围：due_followup 跟进到期（默认）/ by_ids 指定客户 / full 全量 / report 报表任务",
+    )
+    customer_ids: list[str] | None = Field(default=None, description="scope=by_ids 时必填")
 
 
 def followup_to_dict(f: Any) -> dict:
@@ -44,4 +55,17 @@ def report_to_dict(r: Any) -> dict:
         "content": r.content,
         "status": r.status,
         "created_at": r.created_at.isoformat() if r.created_at else None,
+    }
+
+
+def customer_view(task: Any) -> dict[str, Any]:
+    """customer 子图任务实体 → 对话视图（跟进任务清单 / 报表产物）。"""
+    result = task.result or {}
+    return {
+        "task_id": task.id,
+        "status": task.status,
+        "thread_id": task.thread_id,
+        "followups": result.get("followups"),
+        "report": result.get("report"),
+        "db_persisted": result.get("db_persisted"),
     }

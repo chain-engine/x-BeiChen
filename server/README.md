@@ -136,6 +136,34 @@ curl -X POST http://127.0.0.1:8866/api/admin/v1/tasks \
 
 响应中的 `events` 会包含 `suggestion_created` 建议事件；若建议涉及资金操作，`approval_no` 保持为空——由审批闸门（二期对接广告审批系统）接管，资金操作不直接执行。
 
+发送一条商务咨询（专属入口，无需自行拼 task_type）：
+
+```bash
+# 普通咨询：直接返回机器人回复（RAG 带来源 sources）
+curl -X POST http://127.0.0.1:8866/api/admin/v1/chat/send \
+  -H "Content-Type: application/json" \
+  -d '{"message": "请问结算周期多久？", "customer_id": "cust_001"}'
+
+# 命中人工关键词（人工/投诉/退款/经理）：status=waiting_human，再用任务 id 人工回复
+curl -X POST http://127.0.0.1:8866/api/admin/v1/chat/123/human-reply \
+  -H "Content-Type: application/json" \
+  -d '{"decision": "approve", "remark": "人工已介入处理投诉"}'
+```
+
+提交一轮客户管理 + 任务调度 Agent 任务（专属入口，走 customer 子图）：
+
+```bash
+# 跟进到期巡检（默认 scope=due_followup）
+curl -X POST http://127.0.0.1:8866/api/admin/v1/customers/run \
+  -H "Content-Type: application/json" \
+  -d '{"scope": "due_followup"}'
+
+# 指定客户 / 报表任务
+curl -X POST http://127.0.0.1:8866/api/admin/v1/customers/run \
+  -H "Content-Type: application/json" \
+  -d '{"scope": "by_ids", "customer_ids": ["cust_001", "cust_002"]}'
+```
+
 ### 8. 常见问题排查
 
 | 现象 | 原因与解决 |
@@ -343,10 +371,14 @@ flowchart TD
 | GET | `/tasks/{task_id}` | 任务详情 |
 | POST | `/tasks/{task_id}/resume` | 人工接管恢复（interrupt/resume） |
 | GET | `/events` | 协作事件列表（审计） |
+| GET | `/events/{event_id}` | 协作事件详情（完整 payload） |
+| POST | `/chat/send` | 发送客户咨询消息（business_chat，命中人工关键词转 waiting_human） |
+| POST | `/chat/{task_id}/human-reply` | 人工接管回复（resume 续跑） |
 | POST | `/monitoring/scan` | 手动触发数据监控巡检 |
 | GET | `/monitoring/alerts` | 告警事件列表 |
+| POST | `/customers/run` | 提交 customer 子图任务（跟进到期巡检/指定客户/全量/报表任务） |
 | GET | `/customers/{customer_id}/followups` | 客户跟进任务列表（客户管理+调度 Agent 产出） |
-| POST | `/customers/reports/trigger` | 手动触发客户报表 |
+| POST | `/customers/reports/trigger` | 手动触发客户报表（ReportService，不经子图） |
 | GET | `/customers/reports` | 客户报表列表 |
 
 **权限控制**：当前为骨架阶段，鉴权 / 限流 / 熔断 / 请求 ID 均已预留实现（`src/core/middleware.py`）但默认未启用；二期接入 JWT + RBAC 后，管理后台接口需携带 `Authorization` 头访问。
