@@ -3,7 +3,8 @@
 
 跟进留痕（铁律：事件/动作可审计）：
     - 客户管理 + 任务调度 Agent 产出的跟进任务写入本表（record_followup）
-    - 与 agent_events 的 FOLLOWUP_CREATED 事件双写
+    - FOLLOWUP_CREATED 协作事件由子图写入 state.events，统一经 AgentTaskService
+      落 agent_events 表并发布，本表不自行双写事件
 """
 
 from __future__ import annotations
