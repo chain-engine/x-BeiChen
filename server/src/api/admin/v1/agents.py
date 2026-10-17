@@ -20,6 +20,8 @@ from fastapi.responses import JSONResponse
 from src.api.dependencies import get_task_service
 from src.api.response import success_response
 from src.agents.registry import agent_registry
+from src.models.entities.agent_event import AgentEvent
+from src.models.entities.agent_task import AgentTask
 from src.schemas.agent import AgentTaskCreate, AgentTaskResumeIn
 from src.services.agent_task_service import AgentTaskService
 

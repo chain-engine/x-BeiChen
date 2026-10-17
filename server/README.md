@@ -326,7 +326,6 @@ flowchart LR
     EVAL --> COMPOSE["compose 编排任务<br/>followup 任务；scope=report 追加报表任务"]
     COMPOSE --> DISPATCH["dispatch 确定性执行<br/>FOLLOWUP_CREATED 落库 / REPORT_GENERATED 模板聚合"]
     DISPATCH --> END([END])
-```nt -->|resume 人工决策| Sub2
 ```
 
 ### 关键技术组件说明
