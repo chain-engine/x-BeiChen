@@ -51,14 +51,15 @@ async def lifespan(app: FastAPI):
         except Exception as exc:
             logger.exception(f"数据库初始化失败（应用继续启动，DB 接口将返回 503）：{exc}")
 
-    # 4. 定时任务（默认关闭：BEICHEN_SCHEDULER_ENABLED=true 时启动监控巡检）
+    # 4. 定时任务（默认关闭：BEICHEN_SCHEDULER_ENABLED=true 时启动监控巡检 + 客户跟进/报表）
     if os.environ.get("BEICHEN_SCHEDULER_ENABLED", "false").lower() == "true":
         from src.scheduling import get_scheduler
 
         scheduler = get_scheduler()
         scheduler.register_monitor_job(interval_minutes=15)
+        scheduler.register_customer_jobs(followup_interval_hours=6, report_hour="08:00")
         scheduler.start()
-        logger.info("定时任务已启动（监控巡检 15 分钟/轮）")
+        logger.info("定时任务已启动（监控巡检 15 分钟/轮；客户跟进 6 小时/轮；客户日报 08:00）")
 
     yield
 

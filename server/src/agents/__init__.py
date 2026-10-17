@@ -9,7 +9,8 @@
     tools/          工具注册中心（三级权限：只读/审批写/执行写）
     monitor/        数据监控 Agent（子图）
     business_chat/  商务对话 Agent（子图）
-二期占位：customer / content / customer_service / insight（注册即可扩展）
+    customer/       客户管理 + 任务调度 Agent（子图）
+二期占位：content / customer_service / insight（注册即可扩展）
 """
 
 from src.agents.base import BaseAgent

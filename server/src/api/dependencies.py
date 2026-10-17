@@ -20,7 +20,9 @@ from sqlalchemy.orm import Session
 from src.core.config import settings
 from src.infras.database import get_cached_database_provider
 from src.services.agent_task_service import AgentTaskService
+from src.services.customer_service import CustomerService
 from src.services.monitoring_service import MonitoringService
+from src.services.report_service import ReportService
 
 
 def get_db() -> Generator[Session, None, None]:
@@ -56,4 +58,18 @@ def get_monitoring_service(
     return MonitoringService(session)
 
 
-__all__ = ["get_db", "get_task_service", "get_monitoring_service"]
+def get_customer_service(
+    session: Session = Depends(get_db),
+) -> CustomerService:
+    """客户业务服务依赖（快照 / 跟进记录，客户管理 + 任务调度 Agent 主线）。"""
+    return CustomerService(session)
+
+
+def get_report_service(
+    session: Session = Depends(get_db),
+) -> ReportService:
+    """报表业务服务依赖（报表生成 / 查询）。"""
+    return ReportService(session)
+
+
+__all__ = ["get_db", "get_task_service", "get_monitoring_service", "get_customer_service", "get_report_service"]

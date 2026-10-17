@@ -152,10 +152,26 @@ class AgentType(StrBaseEnum):
 
     MONITOR = "monitor", "数据监控 Agent"
     BUSINESS_CHAT = "business_chat", "商务对话 Agent"
-    CUSTOMER = "customer", "客户管理+调度 Agent"
+    CUSTOMER = "customer", "客户管理 + 任务调度 Agent"
     CONTENT = "content", "内容创作 Agent"
     CUSTOMER_SERVICE = "customer_service", "客服与转化 Agent"
     INSIGHT = "insight", "投放洞察+竞品 Agent"
+
+
+class CustomerStatus(StrBaseEnum):
+    """客户状态机（对齐 customers.status 列，迁移规则见 agents/customer/policy.py）。
+
+    流转：lead → negotiating → signed → active → dormant → churned
+    回迁：dormant → active（挽留成功）；negotiating/signed → churned（流失）。
+    状态迁移由 services 层确定性执行（不走 LLM / 工具中心），留痕 customer_followups + 事件。
+    """
+
+    LEAD = "lead", "线索"
+    NEGOTIATING = "negotiating", "洽谈"
+    SIGNED = "signed", "签约"
+    ACTIVE = "active", "活跃"
+    DORMANT = "dormant", "沉睡"
+    CHURNED = "churned", "流失"
 
 
 class TaskStatus(StrBaseEnum):
@@ -185,6 +201,9 @@ class EventType(StrBaseEnum):
     SUGGESTION_CREATED = "suggestion_created", "建议单生成"
     APPROVAL_PASSED = "approval_passed", "审批通过"
     TASK_FAILED = "task_failed", "任务失败"
+    CUSTOMER_STATUS_CHANGED = "customer_status_changed", "客户状态变更"
+    FOLLOWUP_CREATED = "followup_created", "跟进记录生成"
+    REPORT_GENERATED = "report_generated", "报表生成"
 
 
 class ToolPermissionLevel(StrBaseEnum):

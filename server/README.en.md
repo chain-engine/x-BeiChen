@@ -119,7 +119,7 @@ uv run mypy src
 # Dependency vulnerability scan
 uv run pip-audit
 
-# End-to-end orchestration self-check (no DB required; verifies 3 core paths)
+# End-to-end orchestration self-check (no DB required; verifies 4 core paths)
 uv run python scripts/verify_agent_flow.py
 ```
 
@@ -156,17 +156,25 @@ server/
 │   │   ├── dependencies.py  # Shared DI (DB session, service assembly)
 │   │   ├── response.py      # Unified response (ApiResponse: code/message/data/timestamp)
 │   │   ├── router.py        # Central routing (/api/admin/...)
-│   │   └── admin/v1/        # Route groups: health / auth(reserved) / agents / monitoring
+│   │   └── admin/v1/        # Route groups: health / auth(reserved) / agents / monitoring / customers
 │   ├── services/            # Business layer: rules & transaction orchestration (no Request access)
 │   │   ├── agent_task_service.py        # Task submit/resume/query/event persistence (task facade)
-│   │   └── monitoring_service.py         # Patrol trigger / alert query
+│   │   ├── monitoring_service.py         # Patrol trigger / alert query
+│   │   ├── customer_service.py           # Customer snapshots / follow-up records (Customer Mgmt & Scheduling Agent)
+│   │   └── report_service.py             # Customer report generation / query (deterministic templates)
 │   ├── repositories/        # Data access layer: pure CRUD, no business rules
 │   │   ├── base_repository.py            # Generic CRUD base
 │   │   ├── agent_task_repository.py      # Agent task table access
-│   │   └── agent_event_repository.py     # Agent event table access
+│   │   ├── agent_event_repository.py     # Agent event table access
+│   │   ├── customer_repository.py        # Customer table access (incl. due follow-up query)
+│   │   ├── customer_followup_repository.py  # Follow-up record table access
+│   │   └── customer_report_repository.py     # Report table access
 │   ├── models/entities/     # SQLAlchemy ORM entities
 │   │   ├── agent_task.py    # agent_tasks (state machine / retry / approval_no)
-│   │   └── agent_event.py   # agent_events (audit trail)
+│   │   ├── agent_event.py   # agent_events (audit trail)
+│   │   ├── customer.py      # customers (status / follow-up cadence)
+│   │   ├── customer_followup.py  # customer_followups (follow-up records)
+│   │   └── customer_report.py    # customer_reports (report artifacts)
 │   ├── agents/              # Agent orchestration layer (LangGraph + LangChain)
 │   │   ├── orchestrator.py  # Top-level hub: route → subgraph nodes → aggregate
 │   │   ├── registry.py      # Agent registry (route table: who handles what)
@@ -175,12 +183,13 @@ server/
 │   │   ├── base.py          # BaseAgent abstract (subgraph contract)
 │   │   ├── tools/           # Tool registry (read-only / approval-write / exec-write)
 │   │   ├── monitor/         # Data Monitoring Agent subgraph
-│   │   └── business_chat/   # Business Chat Agent subgraph
+│   │   ├── business_chat/   # Business Chat Agent subgraph
+│   │   └── customer/        # Customer Mgmt & Scheduling Agent subgraph (follow-up / scheduled tasks / reports)
 │   ├── infras/              # Infrastructure: database / http / cache / event_bus / llm
-│   ├── schemas/             # Pydantic models: unified response / agent task IO
+│   ├── schemas/             # Pydantic models: unified response / agent task IO / report trigger
 │   ├── constants/           # Constants & enums (incl. agent orchestration domain)
 │   ├── core/                # Global support: config / logger / exceptions / middleware
-│   ├── scheduling/          # Scheduled jobs (APScheduler monitoring patrol)
+│   ├── scheduling/          # Scheduled jobs (APScheduler: monitor patrol / customer follow-up / daily report)
 │   ├── templates/prompts/   # Prompt templates (separated from node code)
 │   └── utils/               # Stateless helpers: mask/path, type conversion
 ├── scripts/
@@ -203,13 +212,13 @@ flowchart TB
     end
 
     subgraph API["API Layer (api/)"]
-        A1["/api/admin/v1: health / agents / tasks / monitoring"]
+        A1["/api/admin/v1: health / agents / tasks / monitoring / customers"]
         A2["Unified response + global exceptions"]
     end
 
     subgraph ORCH["Agent Orchestration Layer (agents/)"]
         C1["Top-level graph: route → subgraph → aggregate"]
-        C2["Business subgraphs: Monitor / Business Chat"]
+        C2["Business subgraphs: Monitor / Business Chat / Customer Mgmt & Scheduling"]
         C3["Agent registry (route table)"]
         C4["Tool registry (3 permission levels)"]
     end
@@ -217,10 +226,13 @@ flowchart TB
     subgraph BIZ["Business Logic Layer (services/)"]
         D1["AgentTaskService"]
         D2["MonitoringService"]
+        D3["CustomerService (snapshots / follow-ups)"]
+        D4["ReportService (report aggregation)"]
     end
 
     subgraph DATA["Data Access Layer (repositories/ + models/)"]
         E1["agent_tasks / agent_events"]
+        E2["customers / customer_followups / customer_reports"]
     end
 
     subgraph INFRA["Infrastructure Layer (infras/ + core/)"]
@@ -241,13 +253,29 @@ flowchart TB
 ```mermaid
 flowchart LR
     Start([Submit Task]) --> Route["route node<br>route table (task_type → Agent)"]
-    Route -->|monitor| Sub1["Monitor Subgraph"]
-    Route -->|business_chat| Sub2["Business Chat Subgraph"]
+    Route -->|monitor| Sub1["Monitor Subgraph<br>pull → calc → judge"]
+    Route -->|business_chat| Sub2["Business Chat Subgraph<br>intent → retrieve → generate"]
+    Route -->|customer| Sub3["Customer Mgmt & Scheduling Subgraph<br>fetch → evaluate → compose → dispatch"]
     Sub1 --> Agg["aggregate<br>(status / result / events)"]
     Sub2 --> Agg
+    Sub3 --> Agg
     Agg --> DB[("persist task / events<br>audit trail")]
     Sub2 -->|complaint / needs human| Int["interrupt human takeover<br>(LangGraph checkpoint pause)"]
     Int -->|resume human decision| Sub2
+```
+
+### Core Flow: Customer Management & Scheduling (functional Agent)
+
+Aligned with the original requirement "track customer status, scheduled tasks, auto-generated reports"; customer data management (CRUD / status transitions) is out of scope for this Agent (phase-2 standalone CRM module).
+
+```mermaid
+flowchart LR
+    Job["Scheduled jobs (APScheduler)<br/>follow-up patrol 6h / daily report 08:00"] --> Task["Submit customer task<br/>（scope=due_followup / report）"]
+    Task --> Fetch["fetch<br/>pull customer snapshots<br/>（DB read / offline mock）"]
+    Fetch --> Eval["evaluate<br/>follow-up rules (deterministic policy)<br/>due follow-up / dormant warning / contract expiry reminder"]
+    Eval --> Comp["compose<br/>follow-up tasks / report tasks"]
+    Comp --> Disp["dispatch<br/>persist follow-ups + dual-write events + report aggregation"]
+    Disp --> Ev["FOLLOWUP_CREATED / REPORT_GENERATED<br/>（audit trail）"]
 ```
 
 ### Core Flow: Monitoring Patrol
@@ -316,6 +344,9 @@ Core API list (admin console, prefix `/api/admin/v1`):
 | GET | `/events` | Collaboration event list (audit) |
 | POST | `/monitoring/scan` | Manually trigger monitoring patrol |
 | GET | `/monitoring/alerts` | Alert event list |
+| GET | `/customers/{customer_id}/followups` | Customer follow-up task list (Customer Mgmt & Scheduling Agent output) |
+| POST | `/customers/reports/trigger` | Manually trigger customer report |
+| GET | `/customers/reports` | Customer report list |
 
 **Access control**: skeleton phase — auth / rate limiting / circuit breaker / request ID are implemented but disabled by default (`src/core/middleware.py`); after phase-2 JWT + RBAC, admin endpoints require an `Authorization` header.
 
@@ -327,6 +358,9 @@ Core API list (admin console, prefix `/api/admin/v1`):
 | --- | --- | --- |
 | `agent_tasks` | Agent task table (state machine / retry / thread id) | `task_type`, `status`, `thread_id`, `retry_count`, `approval_no`, `result(JSON)` |
 | `agent_events` | Collaboration event table (audit trail) | `event_type`, `source_agent`, `payload(JSON)` |
+| `customers` | Customer table (state source for Customer Mgmt & Scheduling Agent) | `customer_id`, `status`, `next_followup_at`, `last_followup_at` |
+| `customer_followups` | Follow-up records (Agent-produced follow-up tasks) | `customer_id`, `action`, `content`, `next_followup_at` |
+| `customer_reports` | Report artifacts (auto-generated reports) | `report_type`, `customer_id`, `period_start/end`, `content(JSON)` |
 
 Config: `DATABASE_HOST / PORT / USER / PASSWORD / DATABASE`; when `DATABASE_ENABLED=true` the app auto-detects and creates missing tables on startup (idempotent — skipped when tables already exist; a connection failure does not block startup, DB endpoints return 503). To create tables manually: `uv run python -c "from src.infras.database import init_database; init_database()"`.
 

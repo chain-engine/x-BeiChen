@@ -8,6 +8,7 @@
     auth        认证（预留，二期 JWT+RBAC）
     agents      Agent 编排（任务提交/查询/人工接管/事件）
     monitoring  数据监控（巡检触发/告警）
+    customers   客户管理（CRUD/状态迁移/跟进/报表）
 """
 
 from fastapi import APIRouter
@@ -15,6 +16,7 @@ from fastapi import APIRouter
 from src.api.admin.v1 import (
     agents,
     auth,
+    customers,
     health,
     monitoring,
 )
@@ -34,5 +36,8 @@ v1_router.include_router(agents.router)
 
 # 数据监控
 v1_router.include_router(monitoring.router)
+
+# 客户管理（客户管理 + 任务调度 Agent）
+v1_router.include_router(customers.router)
 
 __all__ = ["v1_router"]

@@ -1,22 +1,29 @@
 #!/usr/bin/env python3
 """北辰 x-BeiChen 编排层端到端自检脚本（无数据库依赖）。
 
-验证三条核心链路：
+验证四条核心链路：
     1. 数据监控 Agent：pull → calc → judge（条件边：正常/告警）→ 告警+事件发布
     2. 商务对话 Agent：intent → RAG retrieve → generate（mock 回复 + 来源溯源）
     3. 人工接管链路：interrupt 暂停 → resume 恢复（LangGraph 断点续跑）
+    4. 客户管理 + 任务调度 Agent：fetch → evaluate → compose → dispatch
+       （跟进客户状态：FOLLOWUP_CREATED 跟进任务；自动出报表：REPORT_GENERATED）
 
 运行：python scripts/verify_agent_flow.py
 """
 
 from __future__ import annotations
 
+import os
 import sys
 import traceback
 import uuid
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+# 自检脚本声明"无数据库依赖"：强制离线模式，使 Agent 走 mock 快照（fetch 不读真实库）
+os.environ["DATABASE_ENABLED"] = "false"
+os.environ["REDIS_ENABLED"] = "false"
 
 
 def main() -> int:
@@ -76,8 +83,67 @@ def main() -> int:
     print(f"    reply: {resumed.get('result')}")
     assert resumed.get("status") == "success", "resume 后应完成执行（success）"
 
+    # ── 链路 4：客户管理 + 任务调度（跟进客户状态 → 跟进任务；自动出报表 → REPORT_GENERATED）──
     print("=" * 56)
-    print("✓ 三条链路全部验证通过")
+    print("[4] 客户管理 + 任务调度 Agent：fetch → evaluate → compose → dispatch")
+    # 4a. 跟进巡检（mock 客户命中：跟进到期 / 沉睡预警 / 合同到期提醒 → 跟进任务）
+    state4a = runtime.invoke_task(
+        "customer",
+        {"scope": "due_followup"},
+    )
+    assert state4a["status"] == "success", f"customer 应成功，实际 {state4a['status']}"
+    assert state4a.get("target_agent") == "customer", f"assignee 应为 customer，实际 {state4a.get('target_agent')}"
+    ev4a = [e.get("type") for e in state4a.get("events", [])]
+    assert "followup_created" in ev4a, f"应产生跟进事件，实际 {ev4a}"
+    assert "suggestion_created" not in ev4a, f"功能性 Agent 不产生审批建议事件，实际 {ev4a}"
+    res4a = state4a.get("result") or {}
+    followups = res4a.get("followups", [])
+    assert followups and all(f.get("customer_id") for f in followups), f"跟进任务应携带 customer_id，实际 {followups}"
+    print(f"    status  : {state4a['status']}")
+    print(f"    events  : {ev4a}")
+    print(f"    followups（跟进客户状态产出）: {followups}")
+
+    # 4b. 报表（scope=report → REPORT_GENERATED + 模板渲染）
+    state4b = runtime.invoke_task(
+        "customer",
+        {"scope": "report"},
+    )
+    assert state4b["status"] == "success", f"customer 报表应成功，实际 {state4b['status']}"
+    ev4b = [e.get("type") for e in state4b.get("events", [])]
+    assert "report_generated" in ev4b, f"应产生报表事件，实际 {ev4b}"
+    res4b = state4b.get("result") or {}
+    report = res4b.get("report") or {}
+    assert report.get("rendered"), "报表应含渲染文本"
+    print(f"    status  : {state4b['status']}")
+    print(f"    events  : {ev4b}")
+    print(f"    rendered: {report.get('rendered', '')[:100]}...")
+
+    # 4c. 跟进判定规则校验（policy 确定性规则：跟进到期 → message 动作）
+    from datetime import UTC, datetime, timedelta
+
+    from src.agents.customer.policy import build_followup_actions
+    from src.constants import CustomerStatus
+
+    now = datetime.now(UTC)
+    overdue_customer = {
+        "customer_id": "rule_001",
+        "status": CustomerStatus.LEAD.mark,
+        "next_followup_at": now - timedelta(days=5),
+    }
+    ok_customer = {
+        "customer_id": "rule_002",
+        "status": CustomerStatus.LEAD.mark,
+        "next_followup_at": now + timedelta(days=1),
+    }
+    acts_overdue = build_followup_actions(overdue_customer, now=now)
+    acts_ok = build_followup_actions(ok_customer, now=now)
+    assert any(a.get("action") == "message" for a in acts_overdue), f"跟进逾期应产出 message 动作，实际 {acts_overdue}"
+    assert not any(a.get("involves_money") for a in acts_overdue), f"功能性 Agent 跟进动作不携带资金标记，实际 {acts_overdue}"
+    assert acts_ok == [], f"未到期客户不应产出跟进动作，实际 {acts_ok}"
+    print("    跟进判定规则: 逾期→message ✓ 未到期→无动作 ✓ 无资金标记 ✓")
+
+    print("=" * 56)
+    print("✓ 四条链路全部验证通过")
     return 0
 
 
