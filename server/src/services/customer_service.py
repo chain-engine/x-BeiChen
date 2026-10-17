@@ -20,11 +20,8 @@ from typing import Any
 from sqlalchemy.orm import Session
 
 from src.agents.customer.policy import default_next_followup
-from src.constants import EventType
 from src.core.exceptions import NotFoundException
 from src.core.logger import logger
-from src.infras.event_bus import EventBus, EventMessage, get_event_bus
-from src.models.entities.agent_event import AgentEvent
 from src.models.entities.customer import Customer
 from src.models.entities.customer_followup import CustomerFollowup
 from src.repositories.customer_repository import CustomerRepository
@@ -61,11 +58,10 @@ def to_customer_snapshot(c: Customer) -> dict[str, Any]:
 class CustomerService:
     """客户业务服务：快照 / 跟进记录（功能性 Agent 主线）。"""
 
-    def __init__(self, session: Session, event_bus: EventBus | None = None) -> None:
+    def __init__(self, session: Session) -> None:
         self._session = session
         self._repo = CustomerRepository(session)
         self._followup_repo = CustomerFollowupRepository(session)
-        self._event_bus: EventBus = event_bus or get_event_bus()
 
     # ----------------------------------------------------------
     # 客户状态查询（"跟进客户状态"数据源）
@@ -138,35 +134,8 @@ class CustomerService:
         c.last_followup_at = datetime.now(UTC)
         c.next_followup_at = followup.next_followup_at
 
-        # 客户域事件双写：agent_events 落库 + EventBus publish（失败仅记日志）
-        payload = {
-            "customer_id": customer_id,
-            "action": action,
-            "content": followup.content,
-        }
-        self._session.add(AgentEvent(
-            event_type=EventType.FOLLOWUP_CREATED,
-            source_agent="customer",
-            target_agent=None,
-            payload=payload,
-            status="recorded",
-        ))
-        try:
-            import asyncio
-
-            # 有 running loop（FastAPI 请求上下文）→ create_task 异步发布；
-            # 无 loop（线程池/脚本）→ asyncio.run 同步发布。
-            try:
-                loop = asyncio.get_running_loop()
-            except RuntimeError:
-                loop = None
-            if loop is not None:
-                loop.create_task(self._event_bus.publish(EventMessage(event_type=EventType.FOLLOWUP_CREATED, payload=payload, source_agent="customer", target_agent=None)))
-            else:
-                asyncio.run(self._event_bus.publish(EventMessage(event_type=EventType.FOLLOWUP_CREATED, payload=payload, source_agent="customer", target_agent=None)))
-        except Exception as exc:
-            logger.exception(f"[CustomerService] 事件发布失败（已落库留痕）：{exc}")
-
+        # 事件（FOLLOWUP_CREATED）不在此落库/发布：由子图写入 state.events，
+        # 统一交 AgentTaskService 双写，避免重复落库与重复广播。
         self._repo.commit()
         logger.info(f"[CustomerService] 跟进记录 {customer_id}: {action}")
         return followup
