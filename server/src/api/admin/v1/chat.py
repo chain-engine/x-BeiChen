@@ -8,7 +8,7 @@
     POST /chat/{task_id}/human-reply 人工接管回复（resume 续跑）
 
 数据流向：api 层（本文件）→ services（AgentTaskService）→ AgentRuntime（business_chat 子图）。
-通用任务查询 / 事件列表仍走 agents 路由（/tasks、/events）。
+通用任务查询 / 事件列表仍走 agent_task 路由（/tasks、/events）。
 """
 
 from __future__ import annotations

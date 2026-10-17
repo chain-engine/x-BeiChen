@@ -226,8 +226,8 @@ flowchart TB
     subgraph BIZ["Business Logic Layer (services/)"]
         D1["AgentTaskService"]
         D2["MonitoringService"]
-        D3["CustomerService (snapshots / follow-ups)"]
-        D4["ReportService (report aggregation)"]
+        D3["CustomerService"]
+        D4["ReportService"]
     end
 
     subgraph DATA["Data Access Layer (repositories/ + models/)"]

@@ -4,7 +4,9 @@
 职责边界（api → services → repositories 单向）：
     - 客户快照：列表 / 单客户查询（供子图 fetch 节点消费——"跟进客户状态"数据源）
     - 跟进记录：写入 customer_followups，更新客户跟进节奏（Agent 产出物落库）
-    - 客户域事件：AgentEvent 落库 + EventBus publish（与任务事件双写机制对齐）
+
+事件不归本服务双写：FOLLOWUP_CREATED 等协作事件由子图写入 state.events，
+统一由 AgentTaskService 落库 + EventBus 发布，避免同一事件重复落库/重复广播。
 
 功能性 Agent 定位：本服务为 Agent 主线（跟进客户状态 / 定时任务 / 自动出报表）服务；
 客户数据管理（CRUD / 状态迁移 / 续约审批）属二期独立 CRM 模块，不在本服务职责内。
@@ -27,6 +29,33 @@ from src.models.entities.customer import Customer
 from src.models.entities.customer_followup import CustomerFollowup
 from src.repositories.customer_repository import CustomerRepository
 from src.repositories.customer_followup_repository import CustomerFollowupRepository
+
+
+def _aware_dt(dt: datetime | None) -> datetime | None:
+    """naive MySQL DATETIME 补 UTC 时区（policy 用 aware 时间比较，避免 naive/aware 混用报错）。"""
+    if dt is not None and dt.tzinfo is None:
+        return dt.replace(tzinfo=UTC)
+    return dt
+
+
+def to_customer_snapshot(c: Customer) -> dict[str, Any]:
+    """ORM Customer → 统一快照 dict（全项目唯一映射，报表/跟进共用同一份字段形态）。
+
+    时区约定：MySQL DATETIME 读出为 naive，统一补 UTC 再交给 policy。
+    contract_expire_days 二期从合同表关联计算，当前占位 None。
+    """
+    return {
+        "customer_id": c.customer_id,
+        "name": c.name,
+        "industry": c.industry,
+        "status": c.status,
+        "contract_amount": float(c.contract_amount or 0),
+        "budget": float(c.budget or 0),
+        "next_followup_at": _aware_dt(c.next_followup_at),
+        "last_followup_at": _aware_dt(c.last_followup_at),
+        "assignee": c.assignee,
+        "contract_expire_days": None,  # TODO(业务接入): 合同表关联计算
+    }
 
 
 class CustomerService:
@@ -61,7 +90,7 @@ class CustomerService:
     def list_all_snapshots(self, limit: int = 100) -> list[dict[str, Any]]:
         """全量客户快照（供子图 fetch / API 消费）。"""
         customers = self._repo.list_all(limit=limit)
-        return [self._to_snapshot(c) for c in customers]
+        return [to_customer_snapshot(c) for c in customers]
 
     def list_due_followup_snapshots(self, limit: int = 100) -> list[dict[str, Any]]:
         """跟进到期客户快照（供子图 fetch / API 消费）。
@@ -69,42 +98,18 @@ class CustomerService:
         TODO(业务接入): contract_expire_days 二期从合同表关联计算。
         """
         customers = self._repo.list_due_followup(now=datetime.now(UTC), limit=limit)
-        return [self._to_snapshot(c) for c in customers]
+        return [to_customer_snapshot(c) for c in customers]
 
     def list_snapshots_by_ids(self, customer_ids: list[str]) -> list[dict[str, Any]]:
         """按客户 ID 列表获取快照（供子图 fetch / API 消费）。"""
         customers = [c for cid in customer_ids if (c := self._repo.get_by_customer_id(cid)) is not None]
-        return [self._to_snapshot(c) for c in customers]
+        return [to_customer_snapshot(c) for c in customers]
 
     def get_snapshot(self, customer_id: str) -> dict[str, Any]:
         c = self._repo.get_by_customer_id(customer_id)
         if c is None:
             raise NotFoundException(f"客户不存在：{customer_id}")
-        return self._to_snapshot(c)
-
-    def _to_snapshot(self, c: Customer) -> dict[str, Any]:
-        """ORM 客户 → 快照 dict（统一字段形态，policy 消费）。
-
-        时区约定：MySQL DATETIME 读出为 naive，统一补 UTC 再交给 policy
-        （policy 内部使用 datetime.now(UTC) 比较，naive/aware 混用会抛异常）。
-        """
-        def _aware(dt: datetime | None) -> datetime | None:
-            if dt is not None and dt.tzinfo is None:
-                return dt.replace(tzinfo=UTC)
-            return dt
-
-        return {
-            "customer_id": c.customer_id,
-            "name": c.name,
-            "industry": c.industry,
-            "status": c.status,
-            "contract_amount": float(c.contract_amount or 0),
-            "budget": float(c.budget or 0),
-            "next_followup_at": _aware(c.next_followup_at),
-            "last_followup_at": _aware(c.last_followup_at),
-            "assignee": c.assignee,
-            "contract_expire_days": None,  # TODO(业务接入): 合同表关联计算
-        }
+        return to_customer_snapshot(c)
 
     # ----------------------------------------------------------
     # 跟进记录（确定性写，Agent 产出物落库）
@@ -173,5 +178,5 @@ class CustomerService:
         return items, total
 
 
-__all__ = ["CustomerService"]
+__all__ = ["CustomerService", "to_customer_snapshot"]
 

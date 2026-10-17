@@ -126,10 +126,20 @@ def dispatch_node(state: dict[str, Any]) -> dict[str, Any]:
                     sections=content,
                     title="客户日报",
                 )
-                report = {"content": content, "rendered": rendered}
+                report_type = (state.get("payload") or {}).get("report_type", "daily")
+                report: dict[str, Any] = {"content": content, "rendered": rendered, "report_type": report_type}
+                # DB 可用时落库 customer_reports（与手动 /reports/trigger 同一 ReportService，
+                # 保证自动/手动报表都能在报表列表查到）；离线仅返回渲染文本。
+                if db_available:
+                    try:
+                        persisted = _persist_report(report_type=report_type)
+                        report.update(persisted)
+                    except Exception as exc:
+                        logger.exception(f"[Customer] 报表落库失败（渲染结果仍返回）：{exc}")
                 events.append(build_event(EventType.REPORT_GENERATED, "customer", payload={
-                    "report_type": "daily",
+                    "report_type": report_type,
                     "customers": len(customers),
+                    "report_id": report.get("report_id"),
                     "rendered_preview": rendered[:120],
                 }))
 
@@ -170,6 +180,17 @@ def _persist_followups(items: list[dict[str, Any]]) -> None:
                     content=item.get("reason", ""),
                     operator="customer",
                 )
+
+
+def _persist_report(report_type: str = "daily", customer_ids: list[str] | None = None) -> dict[str, Any]:
+    """落库一份客户报表（复用 ReportService.generate_report，与手动 /reports/trigger 同一路径）。"""
+    from src.infras.database import get_cached_database_provider
+    from src.services.report_service import ReportService
+
+    provider = get_cached_database_provider()
+    with provider.session() as session:
+        report = ReportService(session).generate_report(report_type=report_type, customer_ids=customer_ids)
+        return {"report_id": report.id, "persisted": True}
 
 
 __all__ = ["fetch_customers_node", "evaluate_status_node", "compose_tasks_node", "dispatch_node"]

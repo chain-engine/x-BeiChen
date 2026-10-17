@@ -23,7 +23,7 @@ from src.agents.registry import agent_registry
 from src.schemas.agent import AgentTaskCreate, AgentTaskResumeIn
 from src.services.agent_task_service import AgentTaskService
 
-router = APIRouter(tags=["Agent 编排"])
+router = APIRouter(tags=["Agent 任务管理"])
 
 
 @router.get("/agents", summary="Agent 注册表列表")

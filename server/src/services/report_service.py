@@ -14,11 +14,11 @@ from typing import Any
 from sqlalchemy.orm import Session
 
 from src.agents.customer.policy import build_full_report_sections, build_report_sections
-from src.constants import EventType
 from src.core.logger import logger
 from src.models.entities.customer_report import CustomerReport
 from src.repositories.customer_report_repository import CustomerReportRepository
 from src.repositories.customer_repository import CustomerRepository
+from src.services.customer_service import to_customer_snapshot
 
 
 class ReportService:
@@ -41,10 +41,10 @@ class ReportService:
             for cid in customer_ids:
                 c = self._customer_repo.get_by_customer_id(cid)
                 if c is not None:
-                    customers.append(self._customer_to_snapshot(c))
+                    customers.append(to_customer_snapshot(c))
         else:
             for c in self._customer_repo.list_all(limit=200):
-                customers.append(self._customer_to_snapshot(c))
+                customers.append(to_customer_snapshot(c))
 
         if customer_ids and len(customers) == 1:
             content = build_report_sections(customers[0], stats={})
@@ -77,15 +77,6 @@ class ReportService:
             items = self._report_repo.list(order_by=self._report_repo.model_class.id.desc(), offset=offset, limit=page_size)
             total = self._report_repo.count()
         return items, total
-
-    def _customer_to_snapshot(self, c: Any) -> dict[str, Any]:
-        return {
-            "customer_id": c.customer_id,
-            "name": c.name,
-            "status": c.status,
-            "contract_amount": float(c.contract_amount or 0),
-            "budget": float(c.budget or 0),
-        }
 
 
 __all__ = ["ReportService"]

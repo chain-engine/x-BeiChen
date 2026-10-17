@@ -255,8 +255,8 @@ flowchart TB
     subgraph BIZ["业务逻辑层（services/）"]
         D1["AgentTaskService"]
         D2["MonitoringService"]
-        D3["CustomerService（快照 / 跟进记录）"]
-        D4["ReportService（报表聚合）"]
+        D3["CustomerService"]
+        D4["ReportService"]
     end
 
     subgraph DATA["数据访问层（repositories/ + models/）"]
