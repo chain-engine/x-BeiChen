@@ -26,8 +26,8 @@ from src.services.agent_task_service import AgentTaskService
 router = APIRouter(tags=["Agent 任务管理"])
 
 
-@router.get("/agents", summary="Agent 注册表列表")
-async def list_agents(request: Request) -> JSONResponse:
+@router.get("/agents/specs", summary="Agent 注册表列表")
+async def list_agent_specs(request: Request) -> JSONResponse:
     """Agent 注册表列表（无需数据库）。"""
     specs = agent_registry.list_specs()
     return success_response(
@@ -53,16 +53,20 @@ async def submit_task(
     request: Request,
     service: AgentTaskService = Depends(get_task_service),
 ) -> JSONResponse:
-    """提交一个 Agent 任务（同步执行）。"""
+    """提交一个 Agent 任务（同步执行）。传 task_type 直接路由；留空由 LLM 按 query/payload 动态路由。"""
+    payload = dict(body.payload)
+    # 自然语言 query 并入入参，供顶层 RouteResolver 在 task_type 留空时使用
+    if body.query and "query" not in payload and "message" not in payload:
+        payload["query"] = body.query
     task = await service.submit_task(
-        task_type=str(body.task_type),
-        payload=body.payload,
+        task_type=body.task_type,
+        payload=payload,
         timeout_at=body.timeout_at,
     )
     return success_response(data=_task_to_dict(task), request=request)
 
 
-@router.get("/tasks", summary="任务列表")
+@router.get("/tasks", summary="Agent 任务列表")
 async def list_tasks(
     request: Request,
     status: str | None = Query(default=None, description="按任务状态过滤（TaskStatus）"),
@@ -71,7 +75,7 @@ async def list_tasks(
     page_size: int = Query(default=20, ge=1, le=100),
     service: AgentTaskService = Depends(get_task_service),
 ) -> JSONResponse:
-    """任务列表（管理后台任务面板）。"""
+    """Agent 任务列表（管理后台任务面板）。"""
     items, total = service.list_tasks(status=status, task_type=task_type, page=page, page_size=page_size)
     return success_response(
         data={"items": [_task_to_dict(t) for t in items], "total": total, "page": page, "page_size": page_size},
@@ -79,25 +83,25 @@ async def list_tasks(
     )
 
 
-@router.get("/tasks/{task_id}", summary="任务详情")
+@router.get("/tasks/{task_id}", summary="Agent 任务详情")
 async def get_task(
     task_id: int,
     request: Request,
     service: AgentTaskService = Depends(get_task_service),
 ) -> JSONResponse:
-    """任务详情。"""
+    """Agent 任务详情。"""
     task = service.get_task(task_id)
     return success_response(data=_task_to_dict(task), request=request)
 
 
-@router.post("/tasks/{task_id}/resume", summary="恢复人工接管任务")
+@router.post("/tasks/{task_id}/resume", summary="恢复人工接管 Agent 任务")
 async def resume_task(
     task_id: int,
     body: AgentTaskResumeIn,
     request: Request,
     service: AgentTaskService = Depends(get_task_service),
 ) -> JSONResponse:
-    """人工接管：恢复被 interrupt 暂停的任务。"""
+    """人工接管：恢复被 interrupt 暂停的 Agent 任务。"""
     task = await service.resume_task(
         task_id=task_id,
         decision=body.decision,

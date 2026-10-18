@@ -57,14 +57,15 @@ class AgentTaskService:
 
     async def submit_task(
         self,
-        task_type: str,
+        task_type: str | None,
         payload: dict[str, Any],
         timeout_at: datetime | None = None,
     ) -> AgentTask:
         """提交一个 Agent 任务并同步执行（骨架阶段同步；二期改异步队列）。
 
         Args:
-            task_type: 任务类型（AgentType.mark，如 "monitor"）
+            task_type: 任务类型（AgentType.mark，如 "monitor"）；可为 None，
+                此时由顶层 RouteResolver 按 payload 自然语言动态路由（hybrid）。
             payload: 任务入参（由各 Agent 自定义结构，已注册 Agent 的 payload 字段枚举）：
                 monitor（数据监控）:
                     account_id: str，可选，默认 "acc_default"（广告账户 ID）
@@ -85,15 +86,16 @@ class AgentTaskService:
         事件双写契约：编排产生的事件同时「落库留痕 + publish 事件总线」，
         publish 失败不影响主流程（仅记日志），总线作为 Agent 间协作广播通道。
         """
-        # 1. 校验任务类型可路由（提前失败，避免无效任务落库）
+        # 1. 显式任务类型校验：传了就必须已注册；留空放行，交顶层 RouteResolver 动态路由
         from src.agents.registry import agent_registry
 
-        if not agent_registry.has(task_type):
+        if task_type and not agent_registry.has(task_type):
             raise ValidationException(f"任务类型未注册 Agent：{task_type}")
 
-        # 2. 落库 pending（先持久化，获取任务 ID 作为审计主键）
+        # 2. 落库 pending（先持久化，获取任务 ID 作为审计主键）。
+        #    task_type 非空列不可空，动态路由任务先用 "auto" 占位，实际派发 Agent 回写 assignee_agent。
         task = AgentTask(
-            task_type=task_type,
+            task_type=task_type or "auto",
             payload=payload,
             status=TaskStatus.PENDING,
             max_retries=settings.agent.task_max_retries,

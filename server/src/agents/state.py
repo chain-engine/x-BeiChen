@@ -40,3 +40,7 @@ class OrchestratorState(AgentTaskState):
     """顶层调度中枢状态（调度链路：route → subagent → aggregate）。"""
 
     target_agent: str | None  # route 节点写入：实际派发目标 Agent
+    # 路由决策观测字段（仅审计/可观测，子图不声明、不回传，不污染子图状态）
+    route_mode: str | None  # 实际采用的路由方式：explicit / llm / fallback
+    route_confidence: float | None  # LLM 路由置信度（显式路由为 None）
+    route_reason: str | None  # 路由选择理由（LLM 给出或回退说明）

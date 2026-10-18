@@ -17,7 +17,7 @@ from urllib.parse import quote_plus
 
 import yaml
 
-from src.constants import DEFAULT_CONFIG_DIR, Environment
+from src.constants import DEFAULT_CONFIG_DIR, Environment, RouteMode
 from src.core.logger import logger
 from src.utils.convert import to_bool, to_float, to_int
 from src.utils.helpers import find_project_root
@@ -149,6 +149,10 @@ class AgentConfig:
     task_timeout_seconds: int = 300
     event_bus_stream: str = "beichen:agent:events"  # Redis Stream 事件总线
     agent_specs_module: str = "src.agents"  # Agent 注册表扫描模块（预留）
+    # 顶层路由模式（RouteMode 枚举）：explicit 显式查表 / llm 一律 LLM 选 / hybrid 显式优先 LLM 兜底
+    route_mode: str = RouteMode.HYBRID
+    # LLM 动态路由置信度阈值：低于该值不采信，触发回退
+    route_confidence_threshold: float = 0.7
 
 
 @dataclass
@@ -177,7 +181,7 @@ _ENV_SECTION_MAP: dict[str, tuple[str, list[str]]] = {
     "ai": ("AI_", ["enabled"]),
     "agent": (
         "AGENT_",
-        ["enabled", "checkpoint", "task_max_retries", "task_timeout_seconds", "event_bus_stream"],
+        ["enabled", "checkpoint", "task_max_retries", "task_timeout_seconds", "event_bus_stream", "route_mode", "route_confidence_threshold"],
     ),
     "approval": ("APPROVAL_", ["enabled", "base_url", "api_prefix", "timeout_seconds", "service_token"]),
 }
@@ -239,6 +243,8 @@ class Settings:
                 "task_timeout_seconds": 300,
                 "event_bus_stream": "beichen:agent:events",
                 "agent_specs_module": "src.agents",
+                "route_mode": RouteMode.HYBRID,
+                "route_confidence_threshold": 0.7,
             },
             "approval": {
                 "enabled": True,

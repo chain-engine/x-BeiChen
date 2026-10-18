@@ -2,9 +2,9 @@
 """顶层调度中枢编排图（北辰 x-BeiChen，Hybrid 分层混合的标准形态）。
 
 图结构（节点 + 条件边 + 状态）：
-    START ──▶ route（映射表路由）
+    START ──▶ route（RouteResolver 决策：explicit 查表 / llm 动态选 / hybrid 显式优先兜底）
                    │
-                   ├─ conditional（按 target_agent 动态路由）
+                   ├─ conditional（按 target_agent 分发到对应子图）
                    ▼
               monitor 子图节点 ──┐
            business_chat 子图节点 ─┤──▶ aggregate（聚合）──▶ END
@@ -13,12 +13,15 @@
 关键设计（LangGraph 官方标准）：
     - 编译后的业务子图直接 add_node 注册为顶层图节点
       （框架统一处理嵌套 checkpoint / interrupt / resume，无需手动 invoke）
-    - 动态路由：route 节点把 target_agent 写入状态，条件边按它分发到对应子图
+    - 路由决策抽离为 RouteResolver：显式 task_type 合法直接命中（不调 LLM）；
+      为空/未注册时按自然语言交 LLM 从注册候选中选，非法/低置信/Mock 回退失败；
+      route 节点只把最终 target_agent 写入状态，条件边按它分发到对应子图
     - 子图私有字段不声明在 OrchestratorState，输出自动忽略，不污染顶层
 
 职责划分（共识）：
     - 编排图：管"怎么干" —— 派活链路、子图生命周期、中断恢复、结果聚合
-    - 注册表：管"派给谁" —— task_type → Agent 的静态映射（route 节点消费）
+    - RouteResolver：管"派给谁" —— 显式查表 + LLM 动态选择（注册表提供合法候选清单）
+    - 注册表：管"有谁可用" —— 已注册 Agent 清单与子图查找（LLM 只能从中选，不能凭空造）
     - 业务子图：管"具体干" —— 各 Agent 内部步骤（monitor / business_chat ...）
 
 扩展点（二期）：
@@ -47,14 +50,28 @@ if TYPE_CHECKING:
 # 节点实现
 # ------------------------------------------------------------
 
-def route_node(state: OrchestratorState, registry: AgentRegistry | None = None) -> dict[str, Any]:
-    """路由节点：用注册表映射表把任务类型映射到目标 Agent。"""
-    if registry is None:
-        raise RuntimeError("route_node 缺少 registry（build 时未 partial 绑定）")
-    task_type = state.get("task_type", "")
-    spec = registry.route(task_type)
-    logger.info(f"[Orchestrator] route: {task_type} → {spec.name}")
-    return {"target_agent": str(spec.agent_type)}
+def route_node(state: OrchestratorState, resolver: Any = None) -> dict[str, Any]:
+    """路由节点：委托 RouteResolver 决定目标 Agent（explicit / llm / hybrid）。
+
+    决策结果写入 target_agent，并把路由方式/置信度/理由一并落状态用于审计；
+    未能路由（target_agent=None）直接抛错，交由 runtime 标记失败，不让空值进入条件边。
+    """
+    if resolver is None:
+        raise RuntimeError("route_node 缺少 resolver（build 时未 partial 绑定）")
+    decision = resolver.resolve(state.get("task_type"), state.get("payload"))
+    if not decision.target_agent:
+        raise RuntimeError(f"路由失败：{decision.reason}")
+    logger.info(
+        f"[Orchestrator] route: {state.get('task_type') or '(空)'} → "
+        f"{decision.target_agent}（mode={decision.mode_used}, "
+        f"confidence={decision.confidence}, reason={decision.reason}）"
+    )
+    return {
+        "target_agent": decision.target_agent,
+        "route_mode": decision.mode_used,
+        "route_confidence": decision.confidence,
+        "route_reason": decision.reason,
+    }
 
 
 def route_to_target(state: OrchestratorState) -> str:
@@ -86,18 +103,45 @@ def aggregate_node(state: OrchestratorState) -> dict[str, Any]:
 def build_orchestrator_graph(
     registry: AgentRegistry,
     checkpointer: Any | None = None,
+    *,
+    llm_provider: Any | None = None,
+    route_mode: str | None = None,
+    confidence_threshold: float | None = None,
 ) -> "CompiledStateGraph":
     """构建顶层调度中枢编排图。
 
     Args:
-        registry: Agent 注册表（路由与子图查找）
+        registry: Agent 注册表（路由候选与子图查找）
         checkpointer: 检查点（memory/redis），子图 interrupt 依赖父图 checkpointer
+        llm_provider: LLM 提供方；缺省走全局工厂 get_llm_provider()，便于测试替身
+        route_mode: 路由模式（RouteMode 枚举）；缺省取 settings.agent.route_mode
+        confidence_threshold: LLM 路由采信阈值；缺省取 settings.agent.route_confidence_threshold
 
     Returns:
         编译后的顶层编排图
     """
+    # 惰性构造路由决策器，避免编排层初始化时拉入 LLM 依赖
+    from src.agents.routing import RouteResolver
+    from src.core.config import settings
+
+    if route_mode is None:
+        route_mode = settings.agent.route_mode
+    if confidence_threshold is None:
+        confidence_threshold = settings.agent.route_confidence_threshold
+    if llm_provider is None:
+        from src.infras.llm import get_llm_provider
+
+        llm_provider = get_llm_provider()
+
+    resolver = RouteResolver(
+        registry,
+        llm_provider=llm_provider,
+        mode=route_mode,
+        confidence_threshold=confidence_threshold,
+    )
+
     graph = StateGraph(OrchestratorState)
-    graph.add_node("route", partial(route_node, registry=registry))
+    graph.add_node("route", partial(route_node, resolver=resolver))
 
     # 编译后的业务子图直接注册为顶层图节点（LangGraph 官方嵌套形态）
     route_map: dict[str, str] = {}

@@ -35,6 +35,7 @@ from src.constants.enums import (
     HttpHeaders,
     HttpStatusCode,
     SystemRoleCode,
+    RouteMode,
     TaskStatus,
     ToolPermissionLevel,
     UserStatus,
@@ -76,4 +77,5 @@ __all__ = [
     "EventType",
     "ToolPermissionLevel",
     "AgentRunStatus",
+    "RouteMode",
 ]

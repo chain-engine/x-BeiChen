@@ -12,15 +12,26 @@ from src.constants import AgentType
 
 
 class AgentTaskCreate(BaseModel):
-    """提交一个 Agent 任务。"""
+    """提交一个 Agent 任务。
+
+    路由（hybrid）：传了 task_type 直接查表命中；留空时由 LLM 依据 query/payload
+    自然语言从已注册 Agent 中选择，未命中则任务失败。
+    """
 
     model_config = ConfigDict(use_enum_values=True)
 
-    task_type: AgentType = Field(description="任务类型（路由到对应 Agent）")
+    task_type: AgentType | None = Field(
+        default=None,
+        description="任务类型（显式指定则直接路由；留空由 LLM 动态选择）",
+    )
+    query: str | None = Field(
+        default=None,
+        description="自然语言任务描述；task_type 留空时供 LLM 动态路由使用",
+    )
     payload: dict[str, Any] = Field(
         default_factory=dict,
         description=(
-            "任务入参（按 task_type 选用对应字段）。"
+            "任务入参（按最终路由到的 Agent 选用对应字段）。"
             "monitor: {account_id?, campaign_id?}（account_id 默认 acc_default）；"
             "business_chat: {message!, customer_id?}（message 必填）；"
             "customer: {scope?（full/due_followup/by_ids/report，默认 due_followup）, "

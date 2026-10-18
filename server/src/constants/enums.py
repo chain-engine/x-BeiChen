@@ -226,3 +226,16 @@ class AgentRunStatus(StrBaseEnum):
     RUNNING = "running", "运行中"
     WAITING_HUMAN = "waiting_human", "等待人工"
     ERROR = "error", "异常"
+
+
+class RouteMode(StrBaseEnum):
+    """顶层路由模式（对齐 RouteResolver，配置项 agent.route_mode）。
+
+    explicit 仅靠调用方显式 task_type 查表，缺失/非法即失败
+    llm      忽略显式值，一律由 LLM 从已注册候选中选择
+    hybrid   显式优先命中（零成本），为空/未注册时交 LLM 兜底
+    """
+
+    EXPLICIT = "explicit", "显式查表"
+    LLM = "llm", "LLM 动态选择"
+    HYBRID = "hybrid", "显式优先 LLM 兜底"

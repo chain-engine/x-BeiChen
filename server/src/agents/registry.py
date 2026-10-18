@@ -30,6 +30,8 @@ class AgentSpec:
 
     agent: BaseAgent
     enabled: bool = True
+    # 路由提示：该 Agent 适配的典型场景/话术，供 LLM 动态路由构造候选；缺省回退 description
+    routing_hint: str = ""
 
     @property
     def agent_type(self) -> AgentType:
@@ -93,6 +95,26 @@ class AgentRegistry:
     def list_specs(self) -> list[AgentSpec]:
         return list(self._specs.values())
 
+    def list_routing_options(self) -> list[dict[str, str]]:
+        """动态路由候选清单（供 LLM 选择）：仅含启用 Agent，不硬编码枚举。
+
+        返回 [{type, name, description, routing_hint}, ...]，routing_hint 缺省回退 description。
+        新增 Agent 注册后自动纳入，无需改路由提示词。
+        """
+        options: list[dict[str, str]] = []
+        for spec in self._specs.values():
+            if not spec.enabled:
+                continue
+            options.append(
+                {
+                    "type": str(spec.agent_type),
+                    "name": spec.name,
+                    "description": spec.description,
+                    "routing_hint": spec.routing_hint or spec.description,
+                }
+            )
+        return options
+
     def has(self, agent_type: str | AgentType) -> bool:
         return str(agent_type) in self._specs
 
@@ -114,9 +136,24 @@ def register_default_agents() -> None:
     from src.agents.customer.agent import CustomerAgent
     from src.agents.monitor.agent import MonitorAgent
 
-    agent_registry.register(AgentSpec(agent=MonitorAgent()))
-    agent_registry.register(AgentSpec(agent=BusinessChatAgent()))
-    agent_registry.register(AgentSpec(agent=CustomerAgent()))
+    agent_registry.register(
+        AgentSpec(
+            agent=MonitorAgent(),
+            routing_hint="巡检广告投放数据、预算消耗监控、成本/转化/CPC 指标告警、投放异常建议",
+        )
+    )
+    agent_registry.register(
+        AgentSpec(
+            agent=BusinessChatAgent(),
+            routing_hint="客户在线咨询、政策/结算/合作问答、RAG 答疑、投诉转人工",
+        )
+    )
+    agent_registry.register(
+        AgentSpec(
+            agent=CustomerAgent(),
+            routing_hint="客户跟进到期巡检、沉睡预警、合同到期提醒、客户日报/周报生成",
+        )
+    )
 
 
 # 骨架启动即注册默认 Agent（幂等）
