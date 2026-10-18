@@ -61,7 +61,7 @@ def get_monitoring_service(
 def get_customer_service(
     session: Session = Depends(get_db),
 ) -> CustomerService:
-    """客户业务服务依赖（快照 / 跟进记录，客户管理 + 任务调度 Agent 主线）。"""
+    """客户业务服务依赖（快照 / 跟进记录，客户管理 Agent）。"""
     return CustomerService(session)
 
 

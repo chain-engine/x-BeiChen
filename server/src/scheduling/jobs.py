@@ -36,10 +36,11 @@ async def monitor_scan_job(account_ids: list[str] | None = None, **kwargs: Any) 
 
 
 async def customer_followup_job(**kwargs: Any) -> None:
-    """客户跟进巡检任务：触发一轮 customer Agent（scope=due_followup）。
+    """客户跟进巡检任务：提交一轮客户管理 Agent 任务（scope=due_followup）。
 
-    由 Scheduler 周期调用（也可手动触发）；子图内部不做自循环，
-    周期性由调度器负责（与 monitor_scan_job 同范式）。
+    由 Scheduler 周期调用（也可手动触发）；任务调度统一走
+    AgentTaskService.submit_task（演示 Agent 阶段节点产出演示数据，
+    业务接入后由 customer 子图真实判定跟进）。
     TODO(业务接入): 可扩展 payload（customer_ids / assignee 过滤）。
     """
     from src.infras.database import get_cached_database_provider
@@ -62,10 +63,11 @@ async def customer_followup_job(**kwargs: Any) -> None:
 
 
 async def customer_report_job(report_type: str = "daily", **kwargs: Any) -> None:
-    """客户报表任务：触发 customer Agent（scope=report）自动出报表。
+    """客户报表任务：提交客户管理 Agent 任务（scope=report）。
 
-    由 Scheduler 按 cron 周期调用（日报/周报）；报表为确定性模板聚合，
-    洞察总结二期交给 insight Agent。
+    由 Scheduler 按 cron 周期调用（日报/周报）；任务调度统一走
+    AgentTaskService.submit_task（演示 Agent 阶段仅跑通链路，
+    报表真实生成由手动 /customers/reports/trigger 或业务接入后节点落库）。
     """
     from src.infras.database import get_cached_database_provider
     from src.services.agent_task_service import AgentTaskService

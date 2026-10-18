@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
-"""客户管理域 Schema（客户管理 + 任务调度 Agent 主线：跟进 / 报表）。
+"""客户管理域 Schema（客户管理 Agent，演示）。
 
-功能性 Agent 定位：本 Schema 只承载 Agent 主线（跟进客户状态 / 自动出报表）的入出参；
-客户数据管理（CRUD / 状态迁移）入参属二期独立 CRM 模块，不在本文件。
+当前定位：演示 Agent（骨架期，业务需求未定稿）——Schema 承载 Agent 任务提交
+（/customers/run）与报表触发 / 视图转换；客户数据管理（CRUD / 状态迁移）入参
+属二期独立 CRM 模块，不在本文件。
 """
 
 from __future__ import annotations
@@ -21,7 +22,7 @@ class ReportTriggerIn(BaseModel):
 
 
 class CustomerTaskIn(BaseModel):
-    """提交客户管理 + 任务调度 Agent 任务入参（POST /customers/run，走 customer 子图）。"""
+    """提交客户管理 Agent 任务入参（POST /customers/run，走 customer 子图）。"""
 
     scope: str = Field(
         default="due_followup",

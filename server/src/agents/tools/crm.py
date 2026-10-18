@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
-"""客户管理工具包（北辰 x-BeiChen，客户管理 + 任务调度 Agent）。
+"""客户管理工具包（北辰 x-BeiChen，客户管理 Agent）。
 
-功能性 Agent 定位：工具中心只为"跟进客户状态"提供只读查询
+工具定位：为"跟进客户状态"提供只读查询
 （crm.list_all_customer_snapshots / crm.list_due_followup_snapshots / crm.list_customer_snapshots_by_ids / crm.get_customer_snapshot）。
     - 跟进判定 / 报表由 policy 确定性规则完成（不进工具中心）
     - 客户数据管理（CRUD / 状态迁移 / 续约审批）不在本 Agent 职责内（二期 CRM 模块）
+    - 当前 Agent 为演示实现（fetch 节点不调用本工具），本工具保留供业务接入复用
 
 无数据库时降级为 mock 快照，保证编排链路可离线自检（与 ads/rag 同风格）。
 """

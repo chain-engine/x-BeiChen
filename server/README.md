@@ -23,7 +23,7 @@
 
 北辰是基于 **LangGraph + LangChain** 的 Agent 编排平台，承载两大业务方向：
 
-- **广告联盟商务自动化 SaaS**：商务对话 Agent 自动接待客户咨询（RAG 政策问答）、数据监控 Agent 自动巡检投放数据并告警建议、客户管理与任务调度自动出报表；
+- **广告联盟商务自动化 SaaS**：商务对话 Agent 自动接待客户咨询（RAG 政策问答）、数据监控 Agent 自动巡检投放数据并告警建议、客户管理 Agent（当前为演示：四步链路骨架，业务接入后跟进客户状态 / 自动出报表）；
 - **出海营销智能平台**：内容创作 Agent 生成多语言素材、客服转化 Agent 引导成交、投放洞察 Agent 总结素材表现与竞品动态。
 
 平台坚持三条工程铁律：**资金操作必过审批闸门**（审批写工具 + 审批单留痕）、**事件全链路可审计**（事件总线 + 落库）、**Agent 回答有依据**（RAG 检索带来源溯源）。一期广告审批系统为独立项目，北辰通过审批闸门与其对接。
@@ -150,7 +150,7 @@ curl -X POST http://127.0.0.1:8866/api/admin/v1/chat/123/human-reply \
   -d '{"decision": "approve", "remark": "人工已介入处理投诉"}'
 ```
 
-提交一轮客户管理 + 任务调度 Agent 任务（专属入口，走 customer 子图）：
+提交一轮客户管理 Agent 任务（演示，专属入口，走 customer 子图）：
 
 ```bash
 # 跟进到期巡检（默认 scope=due_followup）
@@ -189,7 +189,7 @@ server/
 │   ├── services/            # 业务逻辑层：规则与事务编排（禁读 Request）
 │   │   ├── agent_task_service.py        # 任务提交/恢复/查询/事件落库（任务门面）
 │   │   ├── monitoring_service.py         # 巡检触发 / 告警查询
-│   │   ├── customer_service.py           # 客户快照 / 跟进记录（客户管理 + 任务调度 Agent）
+│   │   ├── customer_service.py           # 客户快照 / 跟进记录（客户管理 Agent）
 │   │   └── report_service.py             # 客户报表生成 / 查询（确定性模板聚合）
 │   ├── repositories/        # 数据访问层：纯 CRUD，无业务判断
 │   │   ├── base_repository.py            # 通用 CRUD 基类
@@ -213,7 +213,7 @@ server/
 │   │   ├── tools/           # 工具注册中心（只读/审批写/执行写 三级权限）
 │   │   ├── monitor/         # 数据监控 Agent 子图
 │   │   ├── business_chat/   # 商务对话 Agent 子图
-│   │   └── customer/        # 客户管理 + 任务调度 Agent 子图（跟进客户状态/定时任务/自动出报表）
+│   │   └── customer/        # 客户管理 Agent 子图（演示：四步链路骨架）
 │   ├── infras/              # 基础设施层：database / http / cache / event_bus / llm
 │   ├── schemas/             # Pydantic 模型：统一响应 / Agent 任务入出参 / 客户报表入参
 │   ├── constants/           # 常量与枚举（含 Agent 编排域枚举、CustomerStatus）
@@ -247,7 +247,7 @@ flowchart TB
 
     subgraph ORCH["Agent 编排层（agents/）"]
         C1["顶层编排图：route → 子图节点 → aggregate"]
-        C2["业务子图：数据监控 / 商务对话 / 客户管理 + 任务调度"]
+        C2["业务子图：数据监控 / 商务对话 / 客户管理（演示）"]
         C3["Agent 注册表（映射表路由）"]
         C4["工具注册中心（三级权限）"]
     end
@@ -285,7 +285,7 @@ flowchart TB
 | --- | --- | --- | --- |
 | monitor 数据监控 | 纯规则（阈值判定） | 否 | 条件边：正常结束 / 异常告警 |
 | business_chat 商务对话 | 固定编排 + LLM | 是（生成节点） | 规则意图分类 + RAG + interrupt 转人工 |
-| customer 客户管理+任务调度 | 纯规则（确定性） | 否 | 线性四节点，规则判定 + 模板报表 |
+| customer 客户管理 | 演示（固定编排，无 LLM） | 否 | 线性四节点演示链路；业务接入后规则判定 + 模板报表 |
 
 #### 1. monitor 数据监控 Agent（纯规则，无 LLM）
 
@@ -315,16 +315,16 @@ flowchart TB
     GEN -- "normal 咨询政策" --> END_BOT([END：LLM 基于 RAG 生成回复])
 ```
 
-#### 3. customer 客户管理 + 任务调度 Agent（纯规则线性，无 LLM）
+#### 3. customer 客户管理 Agent（演示，无 LLM）
 
-确定性规则判定跟进动作并落库，`scope=report` 时额外产出模板聚合日报；不生成审批建议，续约资金动作归审批闸门。
+当前为演示实现：四步链路（fetch → evaluate → compose → dispatch）只产出演示数据，**不读库 / 不落库 / 不发业务事件**（任务调度保留——调度器经 `submit_task` 提交任务）。业务接入后按节点 TODO 替换为真实逻辑：确定性规则判定跟进动作 + 模板聚合报表；不生成审批建议，续约资金动作归审批闸门。
 
 ```mermaid
 flowchart LR
-    START([START]) --> FETCH["fetch 拉客户快照<br/>scope=due_followup / by_ids / all"]
-    FETCH --> EVAL["evaluate 跟进判定（规则引擎）<br/>跟进到期 / 沉睡预警 30 天 / 合同到期 30 天"]
-    EVAL --> COMPOSE["compose 编排任务<br/>followup 任务；scope=report 追加报表任务"]
-    COMPOSE --> DISPATCH["dispatch 确定性执行<br/>FOLLOWUP_CREATED 落库 / REPORT_GENERATED 模板聚合"]
+    START([START]) --> FETCH["fetch 拉客户快照（演示）<br/>业务接入后：scope=due_followup / by_ids / all"]
+    FETCH --> EVAL["evaluate 跟进判定（演示）<br/>业务接入后：跟进到期 / 沉睡预警 30 天 / 合同到期 30 天"]
+    EVAL --> COMPOSE["compose 编排任务（演示）<br/>followup 任务；scope=report 追加报表任务"]
+    COMPOSE --> DISPATCH["dispatch 执行（演示）<br/>不发事件 / 不落库；业务接入后 FOLLOWUP_CREATED / REPORT_GENERATED"]
     DISPATCH --> END([END])
 ```
 
@@ -384,8 +384,8 @@ flowchart LR
 | POST | `/chat/{task_id}/human-reply` | 人工接管回复（resume 续跑） |
 | POST | `/monitoring/scan` | 手动触发数据监控巡检 |
 | GET | `/monitoring/alerts` | 告警事件列表 |
-| POST | `/customers/run` | 提交 customer 子图任务（跟进到期巡检/指定客户/全量/报表任务） |
-| GET | `/customers/{customer_id}/followups` | 客户跟进任务列表（客户管理+调度 Agent 产出） |
+| POST | `/customers/run` | 提交客户管理 Agent 任务（跟进到期巡检/指定客户/全量/报表任务，演示链路） |
+| GET | `/customers/{customer_id}/followups` | 客户跟进任务列表（客户管理 Agent 产出，可审计） |
 | POST | `/customers/reports/trigger` | 手动触发客户报表（ReportService，不经子图） |
 | GET | `/customers/reports` | 客户报表列表 |
 
@@ -399,7 +399,7 @@ flowchart LR
 | --- | --- | --- |
 | `agent_tasks` | Agent 任务表（状态机 / 重试 / 线程 ID） | `task_type`、`status`、`thread_id`、`retry_count`、`approval_no`、`result(JSON)` |
 | `agent_events` | 协作事件表（审计留痕） | `event_type`、`source_agent`、`payload(JSON)` |
-| `customers` | 客户表（客户管理+调度 Agent 的状态数据源） | `customer_id`、`status`、`next_followup_at`、`last_followup_at` |
+| `customers` | 客户表（客户管理 Agent 的状态数据源） | `customer_id`、`status`、`next_followup_at`、`last_followup_at` |
 | `customer_followups` | 跟进记录表（Agent 产出的跟进任务落库） | `customer_id`、`action`、`content`、`next_followup_at` |
 | `customer_reports` | 报表产物表（自动出报表落库） | `report_type`、`customer_id`、`period_start/end`、`content(JSON)` |
 

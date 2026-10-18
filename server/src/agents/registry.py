@@ -105,7 +105,7 @@ agent_registry: AgentRegistry = AgentRegistry()
 
 
 def register_default_agents() -> None:
-    """注册当前骨架已实现的 Agent（数据监控 / 商务对话 / 客户管理 + 任务调度）。
+    """注册当前骨架已实现的 Agent（数据监控 / 商务对话 / 客户管理）。
 
     注册 Agent 对象门面实例；子图在首次被路由时才通过 agent.build() 惰性编译，
     避免编排层初始化时拉入全部业务依赖。

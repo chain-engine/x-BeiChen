@@ -2,9 +2,10 @@
 """客户跟进记录表 ORM 实体。
 
 跟进留痕（铁律：事件/动作可审计）：
-    - 客户管理 + 任务调度 Agent 产出的跟进任务写入本表（record_followup）
+    - 客户管理 Agent 产出的跟进任务写入本表（record_followup）
     - FOLLOWUP_CREATED 协作事件由子图写入 state.events，统一经 AgentTaskService
       落 agent_events 表并发布，本表不自行双写事件
+（当前 Agent 为演示实现，节点不落库；本表数据由手动录入 / 二期 CRM 写入。）
 """
 
 from __future__ import annotations

@@ -152,7 +152,7 @@ class AgentType(StrBaseEnum):
 
     MONITOR = "monitor", "数据监控 Agent"
     BUSINESS_CHAT = "business_chat", "商务对话 Agent"
-    CUSTOMER = "customer", "客户管理 + 任务调度 Agent"
+    CUSTOMER = "customer", "客户管理 Agent"
     CONTENT = "content", "内容创作 Agent"
     CUSTOMER_SERVICE = "customer_service", "客服与转化 Agent"
     INSIGHT = "insight", "投放洞察+竞品 Agent"

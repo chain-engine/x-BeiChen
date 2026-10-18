@@ -1,9 +1,12 @@
 #!/usr/bin/env python3
-"""客户报表业务服务（北辰 x-BeiChen，客户管理 + 任务调度 Agent）。
+"""客户报表业务服务（北辰 x-BeiChen，客户管理 Agent）。
 
 自动出报表（铁律：确定性模板聚合，不做 LLM 自由生成）：
     - generate_report：聚合客户快照 + 投放统计 → policy 模板 → 落库 customer_reports
     - 洞察总结（"为什么消耗掉了"）二期交给 insight Agent，此处只出数据段
+
+定位说明：当前 Agent 为演示实现（节点不生成报表）；报表真实生成走本服务
+（/customers/reports/trigger 手动触发 / 二期节点接入）。
 """
 
 from __future__ import annotations

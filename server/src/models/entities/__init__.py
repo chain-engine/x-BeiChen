@@ -3,7 +3,7 @@
 当前骨架实体：
     AgentTask         任务表（编排中枢的任务载体）
     AgentEvent        事件表（协作事件留痕）
-    Customer          客户表（客户管理 + 任务调度 Agent）
+    Customer          客户表（客户管理 Agent）
     CustomerFollowup  客户跟进记录表（状态迁移/跟进留痕）
     CustomerReport    客户报表表（自动出报表产物）
 """

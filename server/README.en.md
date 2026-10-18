@@ -23,7 +23,7 @@ A multi-agent orchestration platform for "Affiliate Ad-Tech Automation SaaS + Ov
 
 BeiChen is an Agent orchestration platform built on **LangGraph + LangChain**, serving two business directions:
 
-- **Affiliate Ad-Tech Automation SaaS**: Business Chat Agent handles customer inquiries (RAG policy Q&A), Data Monitoring Agent patrols campaign data and raises alerts with suggestions, Customer Management & Scheduling Agent tracks customers and generates reports;
+- **Affiliate Ad-Tech Automation SaaS**: Business Chat Agent handles customer inquiries (RAG policy Q&A), Data Monitoring Agent patrols campaign data and raises alerts with suggestions, Customer Management Agent (currently a demo: four-step skeleton; after business integration it tracks customers and generates reports);
 - **Overseas Marketing Intelligence Platform**: Content Creation Agent generates multilingual creatives, Customer Service & Conversion Agent drives conversions, Ad Insight Agent summarizes creative performance and competitor moves.
 
 The platform enforces three engineering rules: **money operations always pass the approval gate** (approval-write tools + auditable approval IDs), **full event traceability** (event bus + persistence), and **evidence-grounded answers** (RAG retrieval with source citations). The phase-1 ad approval system is a separate project; BeiChen integrates with it through the approval gate.
@@ -160,7 +160,7 @@ server/
 │   ├── services/            # Business layer: rules & transaction orchestration (no Request access)
 │   │   ├── agent_task_service.py        # Task submit/resume/query/event persistence (task facade)
 │   │   ├── monitoring_service.py         # Patrol trigger / alert query
-│   │   ├── customer_service.py           # Customer snapshots / follow-up records (Customer Mgmt & Scheduling Agent)
+│   │   ├── customer_service.py           # Customer snapshots / follow-up records (Customer Management Agent)
 │   │   └── report_service.py             # Customer report generation / query (deterministic templates)
 │   ├── repositories/        # Data access layer: pure CRUD, no business rules
 │   │   ├── base_repository.py            # Generic CRUD base
@@ -184,7 +184,7 @@ server/
 │   │   ├── tools/           # Tool registry (read-only / approval-write / exec-write)
 │   │   ├── monitor/         # Data Monitoring Agent subgraph
 │   │   ├── business_chat/   # Business Chat Agent subgraph
-│   │   └── customer/        # Customer Mgmt & Scheduling Agent subgraph (follow-up / scheduled tasks / reports)
+│   │   └── customer/        # Customer Management Agent subgraph (demo: four-step skeleton)
 │   ├── infras/              # Infrastructure: database / http / cache / event_bus / llm
 │   ├── schemas/             # Pydantic models: unified response / agent task IO / report trigger
 │   ├── constants/           # Constants & enums (incl. agent orchestration domain)
@@ -218,7 +218,7 @@ flowchart TB
 
     subgraph ORCH["Agent Orchestration Layer (agents/)"]
         C1["Top-level graph: route → subgraph → aggregate"]
-        C2["Business subgraphs: Monitor / Business Chat / Customer Mgmt & Scheduling"]
+        C2["Business subgraphs: Monitor / Business Chat / Customer Management (demo)"]
         C3["Agent registry (route table)"]
         C4["Tool registry (3 permission levels)"]
     end
@@ -255,7 +255,7 @@ flowchart LR
     Start([Submit Task]) --> Route["route node<br>route table (task_type → Agent)"]
     Route -->|monitor| Sub1["Monitor Subgraph<br>pull → calc → judge"]
     Route -->|business_chat| Sub2["Business Chat Subgraph<br>intent → retrieve → generate"]
-    Route -->|customer| Sub3["Customer Mgmt & Scheduling Subgraph<br>fetch → evaluate → compose → dispatch"]
+    Route -->|customer| Sub3["Customer Management Agent (demo)<br>fetch → evaluate → compose → dispatch"]
     Sub1 --> Agg["aggregate<br>(status / result / events)"]
     Sub2 --> Agg
     Sub3 --> Agg
@@ -264,18 +264,18 @@ flowchart LR
     Int -->|resume human decision| Sub2
 ```
 
-### Core Flow: Customer Management & Scheduling (functional Agent)
+### Core Flow: Customer Management Agent (demo)
 
-Aligned with the original requirement "track customer status, scheduled tasks, auto-generated reports"; customer data management (CRUD / status transitions) is out of scope for this Agent (phase-2 standalone CRM module).
+Currently a demo implementation: the four-step chain (fetch → evaluate → compose → dispatch) only produces demo data — it does NOT read the DB, persist anything, or emit business events (task scheduling is kept: the scheduler submits tasks via `submit_task`). After business integration, replace each node per its TODO with real logic: deterministic follow-up rules + template-based reports; no approval suggestions (renewal money actions go through the approval gate).
 
 ```mermaid
 flowchart LR
     Job["Scheduled jobs (APScheduler)<br/>follow-up patrol 6h / daily report 08:00"] --> Task["Submit customer task<br/>（scope=due_followup / report）"]
-    Task --> Fetch["fetch<br/>pull customer snapshots<br/>（DB read / offline mock）"]
-    Fetch --> Eval["evaluate<br/>follow-up rules (deterministic policy)<br/>due follow-up / dormant warning / contract expiry reminder"]
-    Eval --> Comp["compose<br/>follow-up tasks / report tasks"]
-    Comp --> Disp["dispatch<br/>persist follow-ups + dual-write events + report aggregation"]
-    Disp --> Ev["FOLLOWUP_CREATED / REPORT_GENERATED<br/>（audit trail）"]
+    Task --> Fetch["fetch (demo)<br/>business integration: pull customer snapshots<br/>（scope=due_followup / by_ids / all）"]
+    Fetch --> Eval["evaluate (demo)<br/>business integration: deterministic follow-up rules<br/>due follow-up / dormant warning / contract expiry reminder"]
+    Eval --> Comp["compose (demo)<br/>follow-up tasks; scope=report appends report task"]
+    Comp --> Disp["dispatch (demo)<br/>no events / no persistence; integration: FOLLOWUP_CREATED / REPORT_GENERATED"]
+    Disp --> END([END])
 ```
 
 ### Core Flow: Monitoring Patrol
@@ -344,7 +344,7 @@ Core API list (admin console, prefix `/api/admin/v1`):
 | GET | `/events` | Collaboration event list (audit) |
 | POST | `/monitoring/scan` | Manually trigger monitoring patrol |
 | GET | `/monitoring/alerts` | Alert event list |
-| GET | `/customers/{customer_id}/followups` | Customer follow-up task list (Customer Mgmt & Scheduling Agent output) |
+| GET | `/customers/{customer_id}/followups` | Customer follow-up task list (Customer Management Agent output, auditable) |
 | POST | `/customers/reports/trigger` | Manually trigger customer report |
 | GET | `/customers/reports` | Customer report list |
 
@@ -358,7 +358,7 @@ Core API list (admin console, prefix `/api/admin/v1`):
 | --- | --- | --- |
 | `agent_tasks` | Agent task table (state machine / retry / thread id) | `task_type`, `status`, `thread_id`, `retry_count`, `approval_no`, `result(JSON)` |
 | `agent_events` | Collaboration event table (audit trail) | `event_type`, `source_agent`, `payload(JSON)` |
-| `customers` | Customer table (state source for Customer Mgmt & Scheduling Agent) | `customer_id`, `status`, `next_followup_at`, `last_followup_at` |
+| `customers` | Customer table (state source for Customer Management Agent) | `customer_id`, `status`, `next_followup_at`, `last_followup_at` |
 | `customer_followups` | Follow-up records (Agent-produced follow-up tasks) | `customer_id`, `action`, `content`, `next_followup_at` |
 | `customer_reports` | Report artifacts (auto-generated reports) | `report_type`, `customer_id`, `period_start/end`, `content(JSON)` |
 

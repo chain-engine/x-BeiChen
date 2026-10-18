@@ -9,7 +9,7 @@
     agent_task  Agent 编排（任务提交/查询/人工接管/事件）
     chat        商务对话（发消息 / 人工接管回复）
     monitoring  数据监控（巡检触发/告警）
-    customer    客户管理（CRUD/状态迁移/跟进/报表）
+    customer    客户管理 Agent（演示：任务提交 / 跟进 / 报表）
 """
 
 from fastapi import APIRouter
@@ -42,7 +42,7 @@ v1_router.include_router(chat.router)
 # 数据监控
 v1_router.include_router(monitoring.router)
 
-# 客户管理（客户管理 + 任务调度 Agent）
+# 客户管理 Agent（演示）
 v1_router.include_router(customer.router)
 
 __all__ = ["v1_router"]

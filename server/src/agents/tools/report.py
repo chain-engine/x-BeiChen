@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
-"""客户报表渲染工具（北辰 x-BeiChen，客户管理 + 任务调度 Agent）。
+"""客户报表渲染工具（北辰 x-BeiChen，客户管理 Agent）。
 
 确定性模板渲染（铁律：报表可复算、可审计）：
     - 输入为 policy.build_report_sections / build_full_report_sections 的聚合结果
     - 输出为可直接推送的文本（纯函数，无副作用）
 洞察总结（"为什么消耗掉了"）二期由 insight Agent 补充，此处不做 LLM 生成。
+当前 Agent 为演示实现（dispatch 节点不调用本工具），本工具保留供业务接入复用。
 """
 
 from __future__ import annotations

@@ -3,7 +3,7 @@
 - base_repository:           通用 CRUD 基类（BaseRepository）
 - agent_task_repository:     Agent 任务表访问
 - agent_event_repository:    协作事件表访问
-- customer_repository:       客户表访问（客户管理 + 任务调度 Agent）
+- customer_repository:       客户表访问（客户管理 Agent）
 - customer_followup_repository:客户跟进记录表访问
 - customer_report_repository:客户报表表访问
 

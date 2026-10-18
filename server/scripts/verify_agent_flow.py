@@ -5,8 +5,8 @@
     1. 数据监控 Agent：pull → calc → judge（条件边：正常/告警）→ 告警+事件发布
     2. 商务对话 Agent：intent → RAG retrieve → generate（mock 回复 + 来源溯源）
     3. 人工接管链路：interrupt 暂停 → resume 恢复（LangGraph 断点续跑）
-    4. 客户管理 + 任务调度 Agent：fetch → evaluate → compose → dispatch
-       （跟进客户状态：FOLLOWUP_CREATED 跟进任务；自动出报表：REPORT_GENERATED）
+    4. 客户管理 Agent（演示）：fetch → evaluate → compose → dispatch
+       （四步链路可跑通，产出演示数据、不发业务事件）
 
 运行：python scripts/verify_agent_flow.py
 """
@@ -83,40 +83,39 @@ def main() -> int:
     print(f"    reply: {resumed.get('result')}")
     assert resumed.get("status") == "success", "resume 后应完成执行（success）"
 
-    # ── 链路 4：客户管理 + 任务调度（跟进客户状态 → 跟进任务；自动出报表 → REPORT_GENERATED）──
+    # ── 链路 4：客户管理 Agent（演示）——四步链路可跑通、产出演示数据、不发业务事件 ──
     print("=" * 56)
-    print("[4] 客户管理 + 任务调度 Agent：fetch → evaluate → compose → dispatch")
-    # 4a. 跟进巡检（mock 客户命中：跟进到期 / 沉睡预警 / 合同到期提醒 → 跟进任务）
+    print("[4] 客户管理 Agent（演示）：fetch → evaluate → compose → dispatch")
+    # 4a. 跟进巡检（scope=due_followup：演示客户 → 演示跟进任务）
     state4a = runtime.invoke_task(
         "customer",
         {"scope": "due_followup"},
     )
     assert state4a["status"] == "success", f"customer 应成功，实际 {state4a['status']}"
     assert state4a.get("target_agent") == "customer", f"assignee 应为 customer，实际 {state4a.get('target_agent')}"
-    ev4a = [e.get("type") for e in state4a.get("events", [])]
-    assert "followup_created" in ev4a, f"应产生跟进事件，实际 {ev4a}"
-    assert "suggestion_created" not in ev4a, f"功能性 Agent 不产生审批建议事件，实际 {ev4a}"
     res4a = state4a.get("result") or {}
     followups = res4a.get("followups", [])
-    assert followups and all(f.get("customer_id") for f in followups), f"跟进任务应携带 customer_id，实际 {followups}"
+    assert followups and all(f.get("customer_id") for f in followups), f"演示链路应产出演示跟进任务，实际 {followups}"
+    assert res4a.get("demo") is True, "演示模式 result 应带 demo=True 标记"
+    ev4a = [e.get("type") for e in state4a.get("events", [])]
+    assert ev4a == [], f"演示模式不应产生业务事件（避免污染审计），实际 {ev4a}"
     print(f"    status  : {state4a['status']}")
-    print(f"    events  : {ev4a}")
-    print(f"    followups（跟进客户状态产出）: {followups}")
+    print(f"    events  : {ev4a}（演示不发事件）")
+    print(f"    followups（演示产出）: {followups}")
 
-    # 4b. 报表（scope=report → REPORT_GENERATED + 模板渲染）
+    # 4b. 报表（scope=report：演示任务清单含报表任务，result.demo 标记）
     state4b = runtime.invoke_task(
         "customer",
         {"scope": "report"},
     )
     assert state4b["status"] == "success", f"customer 报表应成功，实际 {state4b['status']}"
-    ev4b = [e.get("type") for e in state4b.get("events", [])]
-    assert "report_generated" in ev4b, f"应产生报表事件，实际 {ev4b}"
     res4b = state4b.get("result") or {}
-    report = res4b.get("report") or {}
-    assert report.get("rendered"), "报表应含渲染文本"
+    assert res4b.get("demo") is True, "报表任务同样为演示模式产出"
+    ev4b = [e.get("type") for e in state4b.get("events", [])]
+    assert ev4b == [], f"演示模式报表不应产生业务事件，实际 {ev4b}"
     print(f"    status  : {state4b['status']}")
-    print(f"    events  : {ev4b}")
-    print(f"    rendered: {report.get('rendered', '')[:100]}...")
+    print(f"    events  : {ev4b}（演示不发事件）")
+    print(f"    report  : {res4b.get('report')}（业务接入后由 ReportService 生成）")
 
     # 4c. 跟进判定规则校验（policy 确定性规则：跟进到期 → message 动作）
     from datetime import UTC, datetime, timedelta

@@ -72,7 +72,7 @@ class AgentTaskService:
                 business_chat（商务对话）:
                     message: str，必填（用户消息文本，用于意图识别）
                     customer_id: str，可选（客户 ID，事件关联用）
-                customer（客户管理+任务调度）:
+                customer（客户管理 Agent，演示）:
                     scope: str，可选，默认 "due_followup"；取值 full（全量）/
                         due_followup（跟进到期）/ by_ids（指定客户）/ report（触发报表任务）
                     customer_ids: list[str]，scope=by_ids 时必填

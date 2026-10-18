@@ -1,15 +1,16 @@
 #!/usr/bin/env python3
-"""客户业务服务（北辰 x-BeiChen，客户管理+调度 Agent）。
+"""客户业务服务（北辰 x-BeiChen，客户管理 Agent）。
 
 职责边界（api → services → repositories 单向）：
-    - 客户快照：列表 / 单客户查询（供子图 fetch 节点消费——"跟进客户状态"数据源）
-    - 跟进记录：写入 customer_followups，更新客户跟进节奏（Agent 产出物落库）
+    - 客户快照：列表 / 单客户查询（供子图 fetch 节点消费——业务接入后的"跟进客户状态"数据源）
+    - 跟进记录：写入 customer_followups，更新客户跟进节奏（业务接入后的 Agent 产出物落库）
 
 事件不归本服务双写：FOLLOWUP_CREATED 等协作事件由子图写入 state.events，
 统一由 AgentTaskService 落库 + EventBus 发布，避免同一事件重复落库/重复广播。
 
-功能性 Agent 定位：本服务为 Agent 主线（跟进客户状态 / 定时任务 / 自动出报表）服务；
-客户数据管理（CRUD / 状态迁移 / 续约审批）属二期独立 CRM 模块，不在本服务职责内。
+定位说明：当前 Agent 为演示实现（节点不读本服务、不落库）；本服务保留供
+业务接入复用与 /customers 手动接口使用。客户数据管理（CRUD / 状态迁移 / 续约审批）
+属二期独立 CRM 模块，不在本服务职责内。
 """
 
 from __future__ import annotations

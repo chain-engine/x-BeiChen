@@ -32,7 +32,7 @@ class ToolSpec:
     enabled: bool = True
 
 
-class ToolRegistry:
+class ToolRegistry:                                                          
     """工具注册表（应用级单例）。"""
 
     def __init__(self) -> None:

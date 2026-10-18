@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
-"""客户管理 + 任务调度 Agent 对外接口（北辰 x-BeiChen 管理后台）。
+"""客户管理 Agent 对外接口（北辰 x-BeiChen 管理后台，演示 Agent）。
 
-功能性 Agent 主线（对齐客户原始需求：跟进客户状态 / 定时任务 / 自动出报表）：
+当前定位：演示 Agent（骨架期，业务需求未定稿）——四步链路（fetch → evaluate →
+compose → dispatch）只产出演示数据；任务调度保留（调度器经 submit_task 提交）。
 
-    POST   /customers/run                       提交 customer 子图任务（跟进巡检/指定客户/全量/报表）
+    POST   /customers/run                       提交客户管理 Agent 任务（跟进巡检/指定客户/全量/报表）
     POST   /customers/reports/trigger          手动触发客户报表（ReportService，不经子图）
     GET    /customers/reports                  报表列表
-    GET    /customers/{customer_id}/followups  跟进任务列表（Agent 产出，可审计）
+    GET    /customers/{customer_id}/followups  跟进任务列表（可审计）
 
 客户数据管理（CRUD / 状态迁移）不在本 Agent 职责内，属二期独立 CRM 模块。
 数据流向：api 层（本文件）→ services（AgentTaskService / CustomerService / ReportService）→ repositories。
@@ -26,19 +27,19 @@ from src.services.agent_task_service import AgentTaskService
 from src.services.customer_service import CustomerService
 from src.services.report_service import ReportService
 
-router = APIRouter(prefix="/customers", tags=["客户管理 + 任务调度 Agent"])
+router = APIRouter(prefix="/customers", tags=["客户管理 Agent"])
 
 
 # ── Agent 任务提交（静态路由先声明，避免被 /{customer_id} 抢先匹配）────────
 
 
-@router.post("/run", summary="提交客户管理+任务调度 Agent 任务")
+@router.post("/run", summary="提交客户管理 Agent 任务")
 async def run_customer_agent(
     request: Request,
     body: CustomerTaskIn = Body(default=...),
     service: AgentTaskService = Depends(get_task_service),
 ) -> JSONResponse:
-    """提交一轮 customer 子图任务：跟进到期巡检（默认）/ 指定客户 / 全量 / 报表任务。"""
+    """提交一轮客户管理 Agent 任务：跟进到期巡检（默认）/ 指定客户 / 全量 / 报表任务。"""
     if body.scope == "by_ids" and not body.customer_ids:
         raise ValidationException("scope=by_ids 时 customer_ids 必填")
     task = await service.submit_task(
@@ -90,7 +91,7 @@ async def list_followups(
     page_size: int = Query(default=20, ge=1, le=100),
     service: CustomerService = Depends(get_customer_service),
 ) -> JSONResponse:
-    """跟进任务列表（客户管理 + 任务调度 Agent 产出的跟进记录，可审计）。"""
+    """跟进任务列表（客户管理 Agent 产出的跟进记录，可审计；演示阶段由手动/二期写入）。"""
     items, total = service.list_followups(customer_id, page=page, page_size=page_size)
     return success_response(
         data={"items": [followup_to_dict(f) for f in items], "total": total, "page": page, "page_size": page_size},

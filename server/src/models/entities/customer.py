@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 """客户实体表 ORM 实体。
 
-客户管理 + 任务调度 Agent（customer）的核心数据载体：
+客户管理 Agent（customer）的数据载体：
     - 客户状态机（lead → negotiating → signed → active → dormant → churned）
     - 跟进节奏（next_followup_at / last_followup_at）
     - 合同与预算（资金相关字段，写操作走审批闸门）
 
 状态迁移规则集中在 agents/customer/policy.py，由 services 层确定性执行。
+当前 Agent 为演示实现，本表数据由手动录入 / 二期 CRM 写入；业务接入后由 fetch 节点读取。
 """
 
 from __future__ import annotations
