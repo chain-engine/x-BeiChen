@@ -30,7 +30,6 @@ def pull_data_node(state: MonitorState) -> dict[str, Any]:
     campaign_id = payload.get("campaign_id")
     raw = tool_registry.invoke(
         "ads.get_campaign_stats",
-        ToolPermissionLevel.READ_ONLY,
         account_id=account_id,
         campaign_id=campaign_id,
     )
@@ -90,7 +89,6 @@ def alert_node(state: MonitorState) -> dict[str, Any]:
     # 1. 即时告警（只读工具，Agent 可直接调用）
     tool_registry.invoke(
         "notification.send_alert",
-        ToolPermissionLevel.READ_ONLY,
         channel="ops",
         title="广告投放异常告警",
         content=suggestion.get("message", "检测到投放异常"),

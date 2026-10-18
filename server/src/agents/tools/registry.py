@@ -32,7 +32,7 @@ class ToolSpec:
     enabled: bool = True
 
 
-class ToolRegistry:                                                          
+class ToolRegistry:
     """工具注册表（应用级单例）。"""
 
     def __init__(self) -> None:
@@ -47,23 +47,28 @@ class ToolRegistry:
     def get(self, name: str) -> ToolSpec | None:
         return self._tools.get(name)
 
-    def check_permission(self, spec: ToolSpec, caller_level: ToolPermissionLevel) -> None:
-        """校验调用方权限是否满足工具要求。"""
-        required = spec.permission_level
-        if required == ToolPermissionLevel.EXEC_WRITE:
-            raise AuthorizationException(f"工具 {spec.name} 为执行级（EXEC_WRITE），仅审批执行器可调用")
-        if required == ToolPermissionLevel.APPROVAL_WRITE and caller_level != ToolPermissionLevel.EXEC_WRITE:
-            raise AuthorizationException(
-                f"工具 {spec.name} 为审批写（APPROVAL_WRITE），Agent 需先走广告审批（返回审批单号后再执行）"
-            )
+    def invoke(self, name: str, **kwargs: Any) -> Any:
+        """调用工具（仅支持只读工具，写工具走审批流程）。
 
-    def invoke(self, name: str, caller_level: ToolPermissionLevel, **kwargs: Any) -> Any:
-        """调用工具（带权限校验）。"""
+        Args:
+            name: 工具名（如 "ads.get_campaign_stats"）
+            **kwargs: 工具函数的实际参数
+
+        Returns:
+            工具函数执行结果
+
+        Raises:
+            ValueError: 工具不存在或已停用
+            AuthorizationException: 工具为写工具（APPROVAL_WRITE / EXEC_WRITE），Agent 需走审批流程
+        """
         spec = self.get(name)
         if spec is None or not spec.enabled:
             raise ValueError(f"工具不存在或已停用：{name}")
-        self.check_permission(spec, caller_level)
-        logger.info(f"[Tool] invoke {name} permission={caller_level}")
+        if spec.permission_level != ToolPermissionLevel.READ_ONLY:
+            raise AuthorizationException(
+                f"工具 {spec.name} 为写工具（{spec.permission_level}），Agent 需走审批流程"
+            )
+        logger.info(f"[Tool] invoke {name}")
         return spec.func(**kwargs)
 
     def list_tools(self) -> list[ToolSpec]:

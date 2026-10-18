@@ -210,7 +210,7 @@ class ToolPermissionLevel(StrBaseEnum):
     """工具三级权限（对齐工具注册中心权限校验）。
 
     read_only      只读工具，Agent 可直接调用（查询数据 / 检索知识）
-    approval_write 写工具，Agent 只能创建审批单，审批通过才执行
+    approval_write 审批写工具，Agent 只能创建审批单，审批通过才执行
     exec_write     执行写工具，仅审批执行器可调用，不注册给 Agent
     """
 

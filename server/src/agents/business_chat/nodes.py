@@ -38,7 +38,6 @@ def retrieve_node(state: ChatState) -> dict[str, Any]:
     query = state.get("message") or ""
     knowledge = tool_registry.invoke(
         "rag.retrieve",
-        ToolPermissionLevel.READ_ONLY,
         query=query,
         top_k=3,
     )
