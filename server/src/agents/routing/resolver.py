@@ -52,7 +52,7 @@ class RouteDecision:
 
 
 class RouteResolver:
-    """显式查表 + LLM 动态选择的路由决策器。"""
+    """路由决策器。"""
 
     def __init__(
         self,

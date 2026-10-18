@@ -45,12 +45,14 @@ from src.core.logger import logger
 if TYPE_CHECKING:
     from langgraph.graph.state import CompiledStateGraph
 
+    from src.agents.routing import RouteResolver
+
 
 # ------------------------------------------------------------
 # 节点实现
 # ------------------------------------------------------------
 
-def route_node(state: OrchestratorState, resolver: Any = None) -> dict[str, Any]:
+def route_node(state: OrchestratorState, resolver: RouteResolver | None = None) -> dict[str, Any]:
     """路由节点：委托 RouteResolver 决定目标 Agent（explicit / llm / hybrid）。
 
     决策结果写入 target_agent，并把路由方式/置信度/理由一并落状态用于审计；
