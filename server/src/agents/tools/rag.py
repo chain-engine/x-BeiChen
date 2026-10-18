@@ -44,7 +44,7 @@ def retrieve(query: str, top_k: int = 3) -> list[dict[str, Any]]:
 def register_rag_tools() -> None:
     """注册 RAG 工具（幂等）。"""
     if tool_registry.get("rag.retrieve") is None:
-        tool_registry.register(ToolSpec(name="rag.retrieve", description="检索公司政策/FAQ 知识（只读）", func=retrieve, permission_level=ToolPermissionLevel.READ_ONLY))
+        tool_registry.register(ToolSpec(name="rag.retrieve", description="检索公司政策/FAQ 知识（只读）", func=retrieve, permission_level=ToolPermissionLevel.READ))
 
 
 register_rag_tools()

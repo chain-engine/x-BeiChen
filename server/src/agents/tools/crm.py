@@ -83,10 +83,10 @@ def get_customer_snapshot(customer_id: str) -> dict[str, Any] | None:
 def register_crm_tools() -> None:
     """注册客户管理工具（幂等）。"""
     if tool_registry.get("crm.list_all_customer_snapshots") is None:
-        tool_registry.register(ToolSpec(name="crm.list_all_customer_snapshots", description="全量客户快照（只读）", func=list_all_customer_snapshots, permission_level=ToolPermissionLevel.READ_ONLY))
-        tool_registry.register(ToolSpec(name="crm.list_due_followup_snapshots", description="跟进到期客户快照（只读）", func=list_due_followup_snapshots, permission_level=ToolPermissionLevel.READ_ONLY))
-        tool_registry.register(ToolSpec(name="crm.list_customer_snapshots_by_ids", description="按客户ID列表获取快照（只读）", func=list_customer_snapshots_by_ids, permission_level=ToolPermissionLevel.READ_ONLY))
-        tool_registry.register(ToolSpec(name="crm.get_customer_snapshot", description="查询单个客户快照（只读）", func=get_customer_snapshot, permission_level=ToolPermissionLevel.READ_ONLY))
+        tool_registry.register(ToolSpec(name="crm.list_all_customer_snapshots", description="全量客户快照（只读）", func=list_all_customer_snapshots, permission_level=ToolPermissionLevel.READ))
+        tool_registry.register(ToolSpec(name="crm.list_due_followup_snapshots", description="跟进到期客户快照（只读）", func=list_due_followup_snapshots, permission_level=ToolPermissionLevel.READ))
+        tool_registry.register(ToolSpec(name="crm.list_customer_snapshots_by_ids", description="按客户ID列表获取快照（只读）", func=list_customer_snapshots_by_ids, permission_level=ToolPermissionLevel.READ))
+        tool_registry.register(ToolSpec(name="crm.get_customer_snapshot", description="查询单个客户快照（只读）", func=get_customer_snapshot, permission_level=ToolPermissionLevel.READ))
 
 
 register_crm_tools()

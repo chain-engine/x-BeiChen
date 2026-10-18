@@ -52,7 +52,7 @@ def render_report(sections: dict[str, Any], title: str = "客户报表") -> str:
 def register_report_tools() -> None:
     """注册报表渲染工具（幂等）。"""
     if tool_registry.get("report.render_report") is None:
-        tool_registry.register(ToolSpec(name="report.render_report", description="渲染客户报表文本（只读，确定性模板）", func=render_report, permission_level=ToolPermissionLevel.READ_ONLY))
+        tool_registry.register(ToolSpec(name="report.render_report", description="渲染客户报表文本（只读，确定性模板）", func=render_report, permission_level=ToolPermissionLevel.READ))
 
 
 register_report_tools()

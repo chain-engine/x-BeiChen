@@ -3,7 +3,7 @@
 
 工具 = Agent 可调用的外部能力（广告平台 / RAG / 通知）。
 权限模型（三级，对齐 ToolPermissionLevel）：
-    - read_only      只读：Agent 可直接调用
+    - read           只读：Agent 可直接调用
     - approval_write 审批写：Agent 只能创建审批单（返回 approval_no），审批通过后由执行器执行
     - exec_write     执行写：仅审批执行器可调用，不注册给 Agent
 
@@ -28,7 +28,7 @@ class ToolSpec:
     name: str
     description: str
     func: Callable[..., Any] = field(repr=False)
-    permission_level: ToolPermissionLevel = ToolPermissionLevel.READ_ONLY
+    permission_level: ToolPermissionLevel = ToolPermissionLevel.READ
     enabled: bool = True
 
 
@@ -64,7 +64,7 @@ class ToolRegistry:
         spec = self.get(name)
         if spec is None or not spec.enabled:
             raise ValueError(f"工具不存在或已停用：{name}")
-        if spec.permission_level != ToolPermissionLevel.READ_ONLY:
+        if spec.permission_level != ToolPermissionLevel.READ:
             raise AuthorizationException(
                 f"工具 {spec.name} 为写工具（{spec.permission_level}），Agent 需走审批流程"
             )

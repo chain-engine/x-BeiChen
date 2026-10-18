@@ -26,7 +26,7 @@ def send_alert(channel: str, title: str, content: str, **extra: Any) -> dict[str
 def register_notification_tools() -> None:
     """注册通知工具（幂等）。"""
     if tool_registry.get("notification.send_alert") is None:
-        tool_registry.register(ToolSpec(name="notification.send_alert", description="发送告警/通知（只读）", func=send_alert, permission_level=ToolPermissionLevel.READ_ONLY))
+        tool_registry.register(ToolSpec(name="notification.send_alert", description="发送告警/通知（只读）", func=send_alert, permission_level=ToolPermissionLevel.READ))
 
 
 register_notification_tools()

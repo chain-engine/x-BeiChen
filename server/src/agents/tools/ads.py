@@ -74,7 +74,7 @@ def pause_campaign(campaign_id: str, reason: str = "") -> dict[str, Any]:
 def register_ads_tools() -> None:
     """注册广告工具到工具注册中心（幂等）。"""
     if tool_registry.get("ads.get_campaign_stats") is None:
-        tool_registry.register(ToolSpec(name="ads.get_campaign_stats", description="查询广告投放数据（只读）", func=get_campaign_stats, permission_level=ToolPermissionLevel.READ_ONLY))
+        tool_registry.register(ToolSpec(name="ads.get_campaign_stats", description="查询广告投放数据（只读）", func=get_campaign_stats, permission_level=ToolPermissionLevel.READ))
         tool_registry.register(ToolSpec(name="ads.adjust_budget", description="调整广告预算（审批写）", func=adjust_budget, permission_level=ToolPermissionLevel.APPROVAL_WRITE))
         tool_registry.register(ToolSpec(name="ads.pause_campaign", description="暂停广告计划（审批写）", func=pause_campaign, permission_level=ToolPermissionLevel.APPROVAL_WRITE))
 
