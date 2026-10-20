@@ -11,7 +11,6 @@
 
 输入策略（经确认）：
     - 主文本：白名单人话字段 message/query/question/description/remark/intent，取第一个非空；
-    - 辅助线索：有语义的枚举（scope/report_type）翻译成短标签附在后面；
     - ID 类（account_id/campaign_id/customer_id/customer_ids）不进 prompt，避免噪声。
 """
 
@@ -31,14 +30,6 @@ _VALID_MODES = set(RouteMode)
 
 # 白名单人话字段（按优先级取第一个非空）
 _TEXT_FIELDS: tuple[str, ...] = ("message", "query", "question", "description", "remark", "intent")
-
-# 枚举短标签辅助线索（不包含任何 ID）
-_SCOPE_LABELS: dict[str, str] = {
-    "report": "生成客户报表",
-    "due_followup": "跟进到期巡检",
-    "by_ids": "指定客户跟进",
-    "full": "全量客户巡检",
-}
 
 
 @dataclass
@@ -108,22 +99,13 @@ class RouteResolver:
     # ----------------------------------------------------------
 
     def _extract_query(self, payload: dict[str, Any]) -> str:
-        """白名单人话字段为主，枚举短标签为辅；ID 类字段丢弃。"""
+        """白名单人话字段为主；ID 类字段丢弃。"""
         parts: list[str] = []
         for field in _TEXT_FIELDS:
             value = payload.get(field)
             if isinstance(value, str) and value.strip():
                 parts.append(value.strip())
                 break
-
-        scope = payload.get("scope")
-        if isinstance(scope, str) and scope in _SCOPE_LABELS:
-            parts.append(f"（任务范围：{_SCOPE_LABELS[scope]}）")
-
-        report_type = payload.get("report_type")
-        if isinstance(report_type, str) and report_type.strip():
-            parts.append(f"（报表类型：{report_type.strip()}）")
-
         return "；".join(parts)
 
     # ----------------------------------------------------------

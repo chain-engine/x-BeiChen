@@ -7,9 +7,6 @@
     health      健康/版本探针
     auth        认证（预留，二期 JWT+RBAC）
     agent_task  Agent 编排（任务提交/查询/人工接管/事件）
-    chat        商务对话（发消息 / 人工接管回复）
-    monitoring  数据监控（巡检触发/告警）
-    customer    客户管理 Agent（演示：任务提交 / 跟进 / 报表）
 """
 
 from fastapi import APIRouter
@@ -17,10 +14,7 @@ from fastapi import APIRouter
 from src.api.admin.v1 import (
     agent_task,
     auth,
-    chat,
-    customer,
     health,
-    monitoring,
 )
 from src.constants import API_VERSION_V1_PREFIX
 
@@ -35,14 +29,5 @@ v1_router.include_router(auth.router)
 
 # Agent 编排
 v1_router.include_router(agent_task.router)
-
-# 商务对话
-v1_router.include_router(chat.router)
-
-# 数据监控
-v1_router.include_router(monitoring.router)
-
-# 客户管理 Agent（演示）
-v1_router.include_router(customer.router)
 
 __all__ = ["v1_router"]

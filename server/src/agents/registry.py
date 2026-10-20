@@ -120,44 +120,13 @@ class AgentRegistry:
 
 
 # ============================================================
-# 全局单例：北辰当前注册的 Agent
+# 全局单例：北辰 Agent 注册表
 # ============================================================
 
 agent_registry: AgentRegistry = AgentRegistry()
 
+# 说明：已封装的三条固定工作流 Agent（数据监控 / 商务对话 / 客户管理）已随
+# 项目定位调整移除；后续面向湖北省人社平台的新 Agent 在此 register 即可扩展
+# （AgentSpec 持 Agent 对象门面，子图在首次被路由时通过 agent.build() 惰性编译）。
 
-def register_default_agents() -> None:
-    """注册当前骨架已实现的 Agent（数据监控 / 商务对话 / 客户管理）。
-
-    注册 Agent 对象门面实例；子图在首次被路由时才通过 agent.build() 惰性编译，
-    避免编排层初始化时拉入全部业务依赖。
-    """
-    from src.agents.business_chat.agent import BusinessChatAgent
-    from src.agents.customer.agent import CustomerAgent
-    from src.agents.monitor.agent import MonitorAgent
-
-    agent_registry.register(
-        AgentSpec(
-            agent=MonitorAgent(),
-            routing_hint="巡检广告投放数据、预算消耗监控、成本/转化/CPC 指标告警、投放异常建议",
-        )
-    )
-    agent_registry.register(
-        AgentSpec(
-            agent=BusinessChatAgent(),
-            routing_hint="客户在线咨询、政策/结算/合作问答、RAG 答疑、投诉转人工",
-        )
-    )
-    agent_registry.register(
-        AgentSpec(
-            agent=CustomerAgent(),
-            routing_hint="客户跟进到期巡检、沉睡预警、合同到期提醒、客户日报/周报生成",
-        )
-    )
-
-
-# 骨架启动即注册默认 Agent（幂等）
-if not agent_registry.has(AgentType.MONITOR):
-    register_default_agents()
-
-__all__ = ["AgentSpec", "AgentRegistry", "agent_registry", "register_default_agents"]
+__all__ = ["AgentSpec", "AgentRegistry", "agent_registry"]

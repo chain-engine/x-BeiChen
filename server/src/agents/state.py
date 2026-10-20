@@ -10,7 +10,7 @@
     payload —— 任务入参
     status / result / error —— 执行结果归一化
     events —— 协作事件累计（子图节点追加，顶层聚合后落库）
-    approval_no —— 资金类写操作的审批凭证（对齐广告审批留痕）
+    approval_no —— 资金类写操作的审批凭证（审批闸门留痕）
 """
 
 from __future__ import annotations

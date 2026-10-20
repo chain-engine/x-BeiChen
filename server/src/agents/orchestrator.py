@@ -6,9 +6,8 @@
                    │
                    ├─ conditional（按 target_agent 分发到对应子图）
                    ▼
-              monitor 子图节点 ──┐
-           business_chat 子图节点 ─┤──▶ aggregate（聚合）──▶ END
-             （二期继续挂新子图）   ┘
+              已注册业务子图节点 ──▶ aggregate（聚合）──▶ END
+              （后续注册的新 Agent 子图自动挂载，无需改图结构）
 
 关键设计（LangGraph 官方标准）：
     - 编译后的业务子图直接 add_node 注册为顶层图节点
@@ -22,10 +21,10 @@
     - 编排图：管"怎么干" —— 派活链路、子图生命周期、中断恢复、结果聚合
     - RouteResolver：管"派给谁" —— 显式查表 + LLM 动态选择（注册表提供合法候选清单）
     - 注册表：管"有谁可用" —— 已注册 Agent 清单与子图查找（LLM 只能从中选，不能凭空造）
-    - 业务子图：管"具体干" —— 各 Agent 内部步骤（monitor / business_chat ...）
+    - 业务子图：管"具体干" —— 各 Agent 内部步骤（新注册 Agent 自行实现）
 
 扩展点（二期）：
-    1. 资金类写操作：aggregate 后加条件边 → approval 节点（对接广告审批闸门）
+    1. 资金类写操作：aggregate 后加条件边 → approval 节点（对接审批闸门）
     2. 事件驱动：同一事件并行派发多个子图（并行分支，LangGraph 支持 fan-out/fan-in）
     3. 人工接管：子图内 interrupt() 后，由 runtime.resume_task() 恢复
 """

@@ -2,8 +2,8 @@
 """Agent 任务表 ORM 实体。
 
 一张表承载编排中枢的全部任务：任务类型（路由键）、状态机、重试、线程 ID、
-执行结果与错误信息。资金类写操作（广告预算调整等）落地时，
-result 中应携带广告审批单号（approval_no），作为留痕凭证。
+执行结果与错误信息。资金类写操作落地时，
+result 中应携带审批单号（approval_no），作为留痕凭证。
 """
 
 from __future__ import annotations
@@ -30,7 +30,7 @@ class AgentTask(Base):
     retry_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0, comment="已重试次数")
     max_retries: Mapped[int] = mapped_column(Integer, nullable=False, default=3, comment="最大重试次数")
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True, comment="最近一次失败原因")
-    approval_no: Mapped[str | None] = mapped_column(String(32), index=True, nullable=True, comment="资金类操作的审批单号（广告审批凭证，留痕）")
+    approval_no: Mapped[str | None] = mapped_column(String(32), index=True, nullable=True, comment="资金类操作的审批单号（审批闸门凭证，留痕）")
     result: Mapped[dict | None] = mapped_column(JSON, nullable=True, comment="执行结果（含 approval_no 等凭证）")
     timeout_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, comment="超时时间点")
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, server_default=func.now(), comment="创建时间")

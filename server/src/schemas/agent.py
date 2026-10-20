@@ -30,13 +30,7 @@ class AgentTaskCreate(BaseModel):
     )
     payload: dict[str, Any] = Field(
         default_factory=dict,
-        description=(
-            "任务入参（按最终路由到的 Agent 选用对应字段）。"
-            "monitor: {account_id?, campaign_id?}（account_id 默认 acc_default）；"
-            "business_chat: {message!, customer_id?}（message 必填）；"
-            "customer: {scope?（full/due_followup/by_ids/report，默认 due_followup）, "
-            "customer_ids?（scope=by_ids 必填）, report_type?（daily/weekly）}"
-        ),
+        description="任务入参（按最终路由到的 Agent 选用对应字段，各 Agent 自定义结构）",
     )
     timeout_at: datetime | None = Field(default=None, description="超时时间，默认按配置")
 

@@ -146,32 +146,13 @@ class ApiResponseMessage(StrBaseEnum):
 class AgentType(StrBaseEnum):
     """Agent 类型（业务 Agent 清单，对齐架构图）。
 
-    当前骨架只落地 monitor（数据监控）与 business_chat（商务对话）两张子图，
-    其余类型为二期占位，注册到 registry 即可扩展。
+    已封装的固定工作流 Agent（数据监控 / 商务对话 / 客户管理）已随项目定位
+    调整移除；以下类型为二期占位，注册到 registry 即可扩展。
     """
 
-    MONITOR = "monitor", "数据监控 Agent"
-    BUSINESS_CHAT = "business_chat", "商务对话 Agent"
-    CUSTOMER = "customer", "客户管理 Agent"
     CONTENT = "content", "内容创作 Agent"
     CUSTOMER_SERVICE = "customer_service", "客服与转化 Agent"
     INSIGHT = "insight", "投放洞察+竞品 Agent"
-
-
-class CustomerStatus(StrBaseEnum):
-    """客户状态机（对齐 customers.status 列，迁移规则见 agents/customer/policy.py）。
-
-    流转：lead → negotiating → signed → active → dormant → churned
-    回迁：dormant → active（挽留成功）；negotiating/signed → churned（流失）。
-    状态迁移由 services 层确定性执行（不走 LLM / 工具中心），留痕 customer_followups + 事件。
-    """
-
-    LEAD = "lead", "线索"
-    NEGOTIATING = "negotiating", "洽谈"
-    SIGNED = "signed", "签约"
-    ACTIVE = "active", "活跃"
-    DORMANT = "dormant", "沉睡"
-    CHURNED = "churned", "流失"
 
 
 class TaskStatus(StrBaseEnum):
@@ -194,16 +175,14 @@ class TaskStatus(StrBaseEnum):
 
 
 class EventType(StrBaseEnum):
-    """Agent 协作事件类型（事件总线消息体 type 字段）。"""
+    """Agent 协作事件类型（事件总线消息体 type 字段）。
 
-    INTENT_DETECTED = "intent_detected", "客户意向"
-    ALERT_RAISED = "alert_raised", "监控告警"
-    SUGGESTION_CREATED = "suggestion_created", "建议单生成"
+    随固定工作流 Agent 移除的事件（意向 / 告警 / 建议单 / 客户状态 /
+    跟进记录 / 报表生成）已删除；保留编排层通用事件。
+    """
+
     APPROVAL_PASSED = "approval_passed", "审批通过"
     TASK_FAILED = "task_failed", "任务失败"
-    CUSTOMER_STATUS_CHANGED = "customer_status_changed", "客户状态变更"
-    FOLLOWUP_CREATED = "followup_created", "跟进记录生成"
-    REPORT_GENERATED = "report_generated", "报表生成"
 
 
 class ToolPermissionLevel(StrBaseEnum):

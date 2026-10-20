@@ -66,18 +66,7 @@ class AgentTaskService:
         Args:
             task_type: 任务类型（AgentType.mark，如 "monitor"）；可为 None，
                 此时由顶层 RouteResolver 按 payload 自然语言动态路由（hybrid）。
-            payload: 任务入参（由各 Agent 自定义结构，已注册 Agent 的 payload 字段枚举）：
-                monitor（数据监控）:
-                    account_id: str，可选，默认 "acc_default"（广告账户 ID）
-                    campaign_id: str，可选（广告计划 ID，缺省查账户汇总）
-                business_chat（商务对话）:
-                    message: str，必填（用户消息文本，用于意图识别）
-                    customer_id: str，可选（客户 ID，事件关联用）
-                customer（客户管理 Agent，演示）:
-                    scope: str，可选，默认 "due_followup"；取值 full（全量）/
-                        due_followup（跟进到期）/ by_ids（指定客户）/ report（触发报表任务）
-                    customer_ids: list[str]，scope=by_ids 时必填
-                    report_type: str，scope=report 时可选，daily/weekly（当前编排固定产出日报）
+            payload: 任务入参（由各 Agent 自定义结构，按最终路由到的 Agent 选用对应字段）
             timeout_at: 超时时间点（缺省按配置 agent.task_timeout_seconds）
 
         Returns:
