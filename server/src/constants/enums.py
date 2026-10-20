@@ -144,15 +144,13 @@ class ApiResponseMessage(StrBaseEnum):
 
 
 class AgentType(StrBaseEnum):
-    """Agent 类型（业务 Agent 清单，对齐架构图）。
-
-    已封装的固定工作流 Agent（数据监控 / 商务对话 / 客户管理）已随项目定位
-    调整移除；以下类型为二期占位，注册到 registry 即可扩展。
-    """
+    """Agent 类型（业务 Agent 五大分类，mark 同时作为 agent_tasks.task_type 入库值）。"""
 
     CONTENT = "content", "内容创作 Agent"
-    CUSTOMER_SERVICE = "customer_service", "客服与转化 Agent"
-    INSIGHT = "insight", "投放洞察+竞品 Agent"
+    CUSTOMER_SERVICE = "customer_service", "对话（客服）Agent"
+    SECURITY = "security", "安全 Agent"
+    DATA_ANALYSIS = "data_analysis", "数据分析 Agent"
+    DATA_MONITOR = "data_monitor", "数据监控 Agent"
 
 
 class TaskStatus(StrBaseEnum):

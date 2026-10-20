@@ -14,7 +14,7 @@ DEFAULT_CONFIG_FILE: str = "config.yaml"
 # ── 应用信息 ──────────────────────────────────────────
 APP_ID: str = "x-BeiChen"
 APP_NAME: str = "北辰（BeiChen）"
-APP_DESCRIPTION: str = "面向「广告联盟商务自动化 SaaS + 出海营销智能平台」的多 Agent 编排平台"
+APP_DESCRIPTION: str = "一个面向政企客户的多 Agent 编排平台"
 APP_VERSION: str = "0.1.0"
 
 # ── API 路由 ──────────────────────────────────────────
