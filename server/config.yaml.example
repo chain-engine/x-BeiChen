@@ -68,10 +68,4 @@ agent:
   task_timeout_seconds: 300
   event_bus_stream: beichen:agent:events
   agent_specs_module: src.agents
-
-approval:
-  enabled: true            # 广告审批闸门（二期对接）
-  base_url: http://approval-service:8080
-  api_prefix: /api/v1
-  timeout_seconds: 10
-  service_token: ""
+  route_mode: hybrid       # explicit 显式查表 / llm 一律 LLM 选 / hybrid 显式优先 LLM 兜底

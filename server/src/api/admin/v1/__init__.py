@@ -5,7 +5,7 @@
 
 当前 v1 模块：
     health      健康/版本探针
-    auth        认证（预留，二期 JWT+RBAC）
+    auth        认证（预留）
     agent_task  Agent 编排（任务提交/查询/人工接管/事件）
 """
 

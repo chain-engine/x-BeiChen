@@ -88,11 +88,11 @@ class RedisStreamEventBus(EventBus):
         self._client = redis.from_url(settings.redis.url)
 
     async def publish(self, message: EventMessage) -> None:
-        # TODO(二期): XADD + 消费组；骨架阶段仅记录日志
+        # TODO: XADD + 消费组；骨架阶段仅记录日志
         logger.info(f"[EventBus-Redis] 预留实现，未接入。event={message.event_type}")
 
     async def subscribe(self, event_type: EventType, handler: Callable[[EventMessage], Any]) -> None:
-        # TODO(二期): XREADGROUP 后台任务消费
+        # TODO: XREADGROUP 后台任务消费
         logger.warning("[EventBus-Redis] subscribe 为预留实现，当前未消费事件")
 
 

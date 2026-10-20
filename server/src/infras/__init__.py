@@ -18,7 +18,7 @@
     - event_bus:EventBus → InMemoryEventBus / RedisStreamEventBus
     - llm:      LLMProvider → LangChainLLMProvider / MockLLMProvider
     - http:     HttpProvider → RequestsHttpProvider
-二期扩展：email / sms / storage（按同一风格补充）
+后续扩展：email / sms / storage（按同一风格补充）
 """
 
 __all__ = ["cache", "database", "event_bus", "http", "llm"]

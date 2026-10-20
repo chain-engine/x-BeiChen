@@ -25,7 +25,7 @@ BeiChen is a multi-agent orchestration platform for government & enterprise cust
 
 - **Orchestration core**: top-level hub graph (route → subgraph node → aggregate) + Agent registry (explicit / LLM dynamic / hybrid routing) + runtime (checkpointer / invoke / resume with checkpoint-based human takeover);
 - **Plug-in business agents**: every business agent implements `BaseAgent` and registers into the registry — it is then automatically covered by top-level routing, task dispatch, human takeover and event audit, with no changes to the orchestration layer;
-- **Engineering rules**: money-related writes always pass the approval gate, full event traceability (dual-write: persist + publish), and evidence-grounded answers (RAG knowledge base reserved; vector store + source citations in phase 2).
+- **Engineering rules**: full event traceability (dual-write: persist + publish), and evidence-grounded answers (RAG knowledge base reserved; vector store + source citations to be added).
 
 **Current status**: the `server/` orchestration skeleton is delivered and runs standalone; the previous fixed-workflow agents (data monitoring / business chat / customer management) have been removed along with the repositioning — the registry is empty, and new business agents register to extend; the `web/` frontend is planned.
 
@@ -75,7 +75,7 @@ x-BeiChen/
 
 ## 🏗️ System Architecture
 
-Whole-product view: two frontends + one backend; the approval service is a phase-2 separate system connected via the approval gate.
+Whole-product view: two frontends + one backend.
 
 ```mermaid
 flowchart TB
@@ -98,10 +98,6 @@ flowchart TB
         C4["Event bus (dual-write)"]
     end
 
-    subgraph EXT["External systems"]
-        D1["Approval service (phase-2, separate project)"]
-    end
-
     A1 --> B1
     A2 --> B1
     B1 --> B2
@@ -111,7 +107,6 @@ flowchart TB
     B3 --> C2
     B3 --> C3
     B3 -.-> C4
-    B2 -. Approval gate .-> D1
 ```
 
 Agent orchestration core (LangGraph top-level graph with nested business subgraphs, dynamically mounted from the registry):

@@ -155,19 +155,6 @@ class AgentConfig:
     route_confidence_threshold: float = 0.7
 
 
-@dataclass
-class ApprovalConfig:
-    """审批闸门配置（审批服务对接，预留）。
-    资金类写操作一律经审批后由执行器执行，Agent 不直接调用。
-    """
-
-    enabled: bool = True
-    base_url: str = "http://approval-service:8080"  # 审批服务地址
-    api_prefix: str = "/api/v1"
-    timeout_seconds: int = 10
-    service_token: str = ""  # 服务间鉴权令牌（预留）
-
-
 # ============================================================
 # 环境变量 → YAML 配置段 映射
 # ============================================================
@@ -183,7 +170,6 @@ _ENV_SECTION_MAP: dict[str, tuple[str, list[str]]] = {
         "AGENT_",
         ["enabled", "checkpoint", "task_max_retries", "task_timeout_seconds", "event_bus_stream", "route_mode", "route_confidence_threshold"],
     ),
-    "approval": ("APPROVAL_", ["enabled", "base_url", "api_prefix", "timeout_seconds", "service_token"]),
 }
 
 
@@ -245,13 +231,6 @@ class Settings:
                 "agent_specs_module": "src.agents",
                 "route_mode": RouteMode.HYBRID,
                 "route_confidence_threshold": 0.7,
-            },
-            "approval": {
-                "enabled": True,
-                "base_url": "http://approval-service:8080",
-                "api_prefix": "/api/v1",
-                "timeout_seconds": 10,
-                "service_token": "",
             },
         }
 
@@ -355,7 +334,6 @@ class Settings:
         ai_raw = self._config.get("ai", {})
         self.ai = AIConfig(enabled=ai_raw.get("enabled", True), llm=AILLMConfig(**ai_raw.get("llm", {})))
         self.agent = AgentConfig(**self._config.get("agent", {}))
-        self.approval = ApprovalConfig(**self._config.get("approval", {}))
 
     # ----------------------------------------------------------
     # 环境判断

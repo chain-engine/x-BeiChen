@@ -168,7 +168,6 @@ def _task_to_dict(task) -> dict:
         "retry_count": task.retry_count,
         "max_retries": task.max_retries,
         "error_message": task.error_message,
-        "approval_no": task.approval_no,
         "result": task.result,
         "created_at": task.created_at.isoformat() if task.created_at else None,
         "updated_at": task.updated_at.isoformat() if task.updated_at else None,

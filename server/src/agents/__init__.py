@@ -6,7 +6,7 @@
     registry.py     Agent 注册表（映射表路由："派给谁"）
     runtime.py      AgentRuntime（编排图构建/checkpointer/invoke/resume）
     orchestrator.py 顶层调度中枢编排图（节点+条件边："怎么干"）
-    tools/          工具注册中心（三级权限：只读/审批写/执行写）
+    tools/          工具注册中心（权限：只读可直调 / 写由人工执行）
 新增业务 Agent：在 registry 中 register（AgentSpec）即可扩展，无需改编排层。
 """
 

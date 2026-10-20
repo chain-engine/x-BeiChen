@@ -10,7 +10,6 @@
     payload —— 任务入参
     status / result / error —— 执行结果归一化
     events —— 协作事件累计（子图节点追加，顶层聚合后落库）
-    approval_no —— 资金类写操作的审批凭证（审批闸门留痕）
 """
 
 from __future__ import annotations
@@ -22,7 +21,7 @@ class AgentTaskState(TypedDict, total=False):
     """任务通用状态（顶层与子图共享字段的合并契约）。
 
     子图内嵌顶层图时，LangGraph 会把子图输出的 dict 与顶层状态做同名键合并；
-    因此子图继承本类即可获得 status / result / error / events / approval_no
+    因此子图继承本类即可获得 status / result / error / events
     的回传能力，不必重复声明。
     """
 
@@ -33,7 +32,6 @@ class AgentTaskState(TypedDict, total=False):
     result: dict[str, Any] | None
     error: str | None
     events: list[dict[str, Any]]
-    approval_no: str | None
 
 
 class OrchestratorState(AgentTaskState):

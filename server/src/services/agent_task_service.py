@@ -61,7 +61,7 @@ class AgentTaskService:
         payload: dict[str, Any],
         timeout_at: datetime | None = None,
     ) -> AgentTask:
-        """提交一个 Agent 任务并同步执行（骨架阶段同步；二期改异步队列）。
+        """提交一个 Agent 任务并同步执行（骨架阶段同步执行）。
 
         Args:
             task_type: 任务类型（AgentType.mark，如 "data_monitor"）；可为 None，
@@ -151,7 +151,6 @@ class AgentTaskService:
         task.assignee_agent = final_state.get("target_agent")  # 路由结果回写（②③④：Agent 归属可查）
         task.result = final_state.get("result") or final_state
         task.error_message = final_state.get("error")
-        task.approval_no = final_state.get("approval_no")
         task.timeout_at = None
         if final_state.get("status") == TaskStatus.FAILED.mark:
             task.retry_count += 1

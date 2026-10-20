@@ -23,10 +23,9 @@
     - 注册表：管"有谁可用" —— 已注册 Agent 清单与子图查找（LLM 只能从中选，不能凭空造）
     - 业务子图：管"具体干" —— 各 Agent 内部步骤（新注册 Agent 自行实现）
 
-扩展点（二期）：
-    1. 资金类写操作：aggregate 后加条件边 → approval 节点（对接审批闸门）
-    2. 事件驱动：同一事件并行派发多个子图（并行分支，LangGraph 支持 fan-out/fan-in）
-    3. 人工接管：子图内 interrupt() 后，由 runtime.resume_task() 恢复
+扩展点（预留）：
+    1. 事件驱动：同一事件并行派发多个子图（并行分支，LangGraph 支持 fan-out/fan-in）
+    2. 人工接管：子图内 interrupt() 后，由 runtime.resume_task() 恢复
 """
 
 from __future__ import annotations
@@ -86,7 +85,7 @@ def route_to_target(state: OrchestratorState) -> str:
 def aggregate_node(state: OrchestratorState) -> dict[str, Any]:
     """聚合节点：归一化最终结果与状态，供 service 层落库/回写。
 
-    子图节点输出（status/result/error/events/approval_no）已由 LangGraph
+    子图节点输出（status/result/error/events）已由 LangGraph
     自动合并进顶层状态，这里做最终归一化。
     """
     status = state.get("status", TaskStatus.SUCCESS)

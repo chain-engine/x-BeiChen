@@ -2,8 +2,8 @@
 """
 中央路由注册模块（北辰 x-BeiChen）
 汇聚管理后台路由，统一挂载 /api 前缀：
-    /api/admin/... → 管理后台（北辰 + 审批服务二期嵌入）
-    二期扩展：/api/client/...（客户触点）按同样方式新增聚合 router。
+    /api/admin/... → 管理后台（北辰）
+    后续扩展：/api/client/...（客户触点）按同样方式新增聚合 router。
 """
 
 from fastapi import APIRouter

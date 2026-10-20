@@ -95,7 +95,7 @@ class AgentRuntime:
             task_id: 落库任务 ID（回写审计）
 
         Returns:
-            编排图最终状态（含 status / result / events / approval_no）
+            编排图最终状态（含 status / result / events）
         """
         import uuid
 
@@ -110,7 +110,6 @@ class AgentRuntime:
             "result": None,
             "error": None,
             "events": [],
-            "approval_no": None,
         }
         config = {"configurable": {"thread_id": thread}}
         logger.info(f"[Runtime] invoke task={task_type} thread={thread}")
