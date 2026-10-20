@@ -1,6 +1,6 @@
 # 北辰 x-BeiChen（多 Agent 编排平台）
 
-面向政企客户的多 Agent 编排平台后端：用 LangGraph 编排 Agent 协作、LangChain 组装模型能力、注册表路由任务派发（显式 / LLM 动态 / 混合），任务全生命周期可审计，资金类写操作统一过审批闸门。
+面向政企客户的多 Agent 编排平台后端：用 LangGraph 编排 Agent 协作、LangChain 组装模型能力、注册表路由任务派发（显式 / LLM 动态 / 混合），任务全生命周期可审计。
 
 [English](README.en.md) | 中文
 
@@ -25,9 +25,9 @@
 
 - **编排内核已交付**：顶层调度图（route → 子图节点 → aggregate）、Agent 注册表（映射表路由 + LLM 动态路由）、运行时（checkpointer / invoke / resume 断点续跑）、任务门面（提交 / 查询 / 人工接管 / 事件审计）；
 - **业务 Agent 即插即用**：每个业务 Agent 实现 `BaseAgent` 并注册到注册表，即自动纳入顶层路由与任务分发，无需改编排层；
-- **扩展机制完善**：工具注册中心（只读 / 审批写 / 执行写三级权限）、事件总线（落库 + 广播双写）、RAG 知识底座预留（二期接向量库，回答带来源溯源）。
+- **扩展机制完善**：工具注册中心（只读 / 写两级权限）、事件总线（落库 + 广播双写）、RAG 知识底座预留（待接向量库，回答带来源溯源）。
 
-平台坚持三条工程铁律：**资金操作必过审批闸门**（审批写工具 + 审批单留痕）、**事件全链路可审计**（事件总线 + `agent_events` 落库）、**Agent 回答有依据**（RAG 检索带来源溯源）。
+平台坚持两条工程铁律：**事件全链路可审计**（事件总线 + `agent_events` 落库）、**Agent 回答有依据**（RAG 检索带来源溯源）。
 
 **当前状态**：原有固定工作流 Agent（数据监控 / 商务对话 / 客户管理）已随定位调整移除，注册表为空；编排骨架（顶层图 / 注册表 / 运行时 / 任务 / 事件）可独立运行，新业务 Agent 注册即扩展。
 
@@ -177,7 +177,7 @@ server/
 │   │   ├── agent_task_repository.py      # Agent 任务表访问
 │   │   └── agent_event_repository.py     # 协作事件表访问
 │   ├── models/entities/     # SQLAlchemy ORM 实体
-│   │   ├── agent_task.py    # agent_tasks 任务表（状态机/重试/审批单号）
+│   │   ├── agent_task.py    # agent_tasks 任务表（状态机/重试）
 │   │   └── agent_event.py   # agent_events 事件表（审计留痕）
 │   ├── agents/              # Agent 编排层（LangGraph + LangChain 标准实现）
 │   │   ├── orchestrator.py  # 顶层调度中枢：route → 子图节点 → aggregate
@@ -187,7 +187,7 @@ server/
 │   │   ├── base.py          # BaseAgent 抽象基类（子图构建契约）
 │   │   ├── events.py        # 协作事件构造 helper
 │   │   ├── routing/         # 顶层路由决策器（explicit / llm / hybrid）
-│   │   └── tools/           # 工具注册中心（只读/审批写/执行写 三级权限，待业务注册）
+│   │   └── tools/           # 工具注册中心（只读可直调 / 写由人工执行，待业务注册）
 │   ├── infras/              # 基础设施层：database / http / cache / event_bus / llm
 │   ├── schemas/             # Pydantic 模型：统一响应 / Agent 任务入出参
 │   ├── constants/           # 常量与枚举（Agent 编排域：AgentType / TaskStatus / EventType 等）
@@ -221,7 +221,7 @@ flowchart TB
         C1["顶层编排图：route → 子图节点 → aggregate"]
         C2["Agent 注册表（explicit / llm / hybrid 路由）"]
         C3["运行时（checkpointer / invoke / resume）"]
-        C4["工具注册中心（三级权限，待业务注册）"]
+        C4["工具注册中心（只读/写权限，待业务注册）"]
     end
 
     subgraph BIZ["业务逻辑层（services/）"]
@@ -291,7 +291,7 @@ flowchart LR
 3. **注册**：`agent_registry.register(AgentSpec(agent=YourAgent(), routing_hint="..."))`——注册后自动进入 `/agents/specs` 列表与 LLM 路由候选；
 4. **提交任务**：经 `POST /api/admin/v1/tasks` 提交（显式 `task_type` 或留空交 LLM 动态路由），任务生命周期 / 人工接管 / 事件审计开箱即用。
 
-> 若业务 Agent 需要外部能力（查库 / 检索 / 通知 / 审批写），在 `src/agents/tools/` 下按 `ToolRegistry` 风格注册工具，并遵循三级权限约束。
+> 若业务 Agent 需要外部能力（查库 / 检索 / 通知等），在 `src/agents/tools/` 下按 `ToolRegistry` 风格注册工具：只读工具 Agent 可直接调用，写工具不注册给 Agent，由人工/外部执行。
 
 ### 关键技术组件说明
 
@@ -300,9 +300,9 @@ flowchart LR
 | 顶层编排图 | 派活链路、子图生命周期、结果聚合 | LangGraph `StateGraph`；编译子图直接注册为节点；条件边动态路由 |
 | Agent 注册表 | 「派给谁」的路由 | `task_type → AgentSpec` 映射；子图惰性编译 + 缓存；`list_routing_options` 供 LLM 候选 |
 | Agent 运行时 | 执行与恢复 | `checkpointer`（memory/redis）；`Command(resume=...)` 断点续跑；interrupt 识别与 waiting_human 归一化 |
-| 工具注册中心 | Agent 外部能力 + 权限（待业务注册） | 三级权限：只读 / 审批写 / 执行写；权限不足抛授权异常 |
+| 工具注册中心 | Agent 外部能力 + 权限（待业务注册） | 两级权限：只读（Agent 可直调）/ 写（人工/外部执行）；权限不足抛授权异常 |
 | 事件总线 | Agent 协作消息通道（已接入双写） | 编排事件「落库留痕 + publish 广播」；`InMemoryEventBus`（骨架）/ `RedisStreamEventBus`（生产预留） |
-| RAG 知识底座 | 政企政策 / FAQ 知识检索（预留） | 二期接向量库（Milvus / pgvector），回复带来源溯源 |
+| RAG 知识底座 | 政企政策 / FAQ 知识检索（预留） | 待接向量库（Milvus / pgvector），回复带来源溯源 |
 
 ## 📖 API 文档说明
 
@@ -320,7 +320,7 @@ flowchart LR
 | --- | --- | --- |
 | GET | `/health` | 健康探针（含 db / redis / agent_runtime 依赖状态） |
 | GET | `/version` | 应用版本信息 |
-| POST | `/auth/login` | 登录（预留：二期 JWT + RBAC） |
+| POST | `/auth/login` | 登录（预留：JWT + RBAC） |
 | POST | `/auth/refresh` | 令牌刷新（预留） |
 | GET | `/agents/specs` | Agent 注册表列表（类型 / 名称 / 描述 / 启用状态） |
 | POST | `/tasks` | 提交 Agent 任务（task_type 显式指定或留空交 LLM 动态路由） |
@@ -330,7 +330,7 @@ flowchart LR
 | GET | `/events` | 协作事件列表（审计） |
 | GET | `/events/{event_id}` | 协作事件详情（完整 payload） |
 
-**权限控制**：当前为骨架阶段，鉴权 / 限流 / 熔断 / 请求 ID 均已预留实现（`src/core/middleware.py`）但默认未启用；二期接入 JWT + RBAC 后，管理后台接口需携带 `Authorization` 头访问。
+**权限控制**：当前为骨架阶段，鉴权 / 限流 / 熔断 / 请求 ID 均已预留实现（`src/core/middleware.py`）但默认未启用；接入 JWT + RBAC 后，管理后台接口需携带 `Authorization` 头访问。
 
 ## 💾 存储配置说明
 
@@ -338,7 +338,7 @@ flowchart LR
 
 | 表 | 说明 | 关键字段 |
 | --- | --- | --- |
-| `agent_tasks` | Agent 任务表（状态机 / 重试 / 线程 ID） | `task_type`、`status`、`thread_id`、`retry_count`、`approval_no`、`result(JSON)` |
+| `agent_tasks` | Agent 任务表（状态机 / 重试 / 线程 ID） | `task_type`、`status`、`thread_id`、`retry_count`、`result(JSON)` |
 | `agent_events` | 协作事件表（审计留痕） | `event_type`、`source_agent`、`payload(JSON)` |
 
 配置：`DATABASE_HOST / PORT / USER / PASSWORD / DATABASE`；`DATABASE_ENABLED=true` 时应用启动（lifespan）自动检测缺失表并创建（幂等，表已齐备则跳过；连接失败不阻断启动，DB 接口返回 503 提示）。如需手动建表：`uv run python -c "from src.infras.database import init_database; init_database()"`。

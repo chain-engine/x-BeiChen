@@ -1,6 +1,6 @@
 # BeiChen x-BeiChen (Multi-Agent Orchestration Platform)
 
-Backend of a multi-agent orchestration platform for **government & enterprise customers**: LangGraph orchestrates agent collaboration, LangChain assembles model capabilities, a registry routes task dispatch (explicit / LLM dynamic / hybrid), the full task lifecycle is auditable, and all money-related operations go through an approval gate.
+Backend of a multi-agent orchestration platform for **government & enterprise customers**: LangGraph orchestrates agent collaboration, LangChain assembles model capabilities, a registry routes task dispatch (explicit / LLM dynamic / hybrid), and the full task lifecycle is auditable.
 
 [中文](README.md) | English
 
@@ -25,9 +25,9 @@ BeiChen is an Agent orchestration platform built on **LangGraph + LangChain**, s
 
 - **Orchestration core delivered**: top-level hub graph (route → subgraph node → aggregate), Agent registry (route table + LLM dynamic routing), runtime (checkpointer / invoke / resume with checkpoint-based human takeover), and a task facade (submit / query / human takeover / event audit);
 - **Plug-in business agents**: every business agent implements `BaseAgent` and registers into the registry — it is then automatically covered by top-level routing and task dispatch, with no changes to the orchestration layer;
-- **Extension mechanisms ready**: tool registry (3 permission levels: read-only / approval-write / exec-write), event bus (dual-write: persist + publish), and a reserved RAG knowledge base (vector store + source citations in phase 2).
+- **Extension mechanisms ready**: tool registry (2 permission levels: read-only / write), event bus (dual-write: persist + publish), and a reserved RAG knowledge base (vector store + source citations to be added).
 
-Three engineering rules are enforced: **money operations always pass the approval gate** (approval-write tools + approval ID trail), **full event traceability** (event bus + `agent_events` persistence), and **evidence-grounded answers** (RAG retrieval with source citations).
+Two engineering rules are enforced: **full event traceability** (event bus + `agent_events` persistence) and **evidence-grounded answers** (RAG retrieval with source citations).
 
 **Current status**: the previous fixed-workflow agents (data monitoring / business chat / customer management) have been removed along with the repositioning — the registry is empty; the orchestration skeleton (top-level graph / registry / runtime / tasks / events) runs standalone, and new business agents register to extend.
 
@@ -177,7 +177,7 @@ server/
 │   │   ├── agent_task_repository.py      # Agent task table access
 │   │   └── agent_event_repository.py     # Agent event table access
 │   ├── models/entities/     # SQLAlchemy ORM entities
-│   │   ├── agent_task.py    # agent_tasks (state machine / retry / approval_no)
+│   │   ├── agent_task.py    # agent_tasks (state machine / retry)
 │   │   └── agent_event.py   # agent_events (audit trail)
 │   ├── agents/              # Agent orchestration layer (LangGraph + LangChain)
 │   │   ├── orchestrator.py  # Top-level hub: route → subgraph node → aggregate
@@ -187,7 +187,7 @@ server/
 │   │   ├── base.py          # BaseAgent abstract (subgraph contract)
 │   │   ├── events.py        # Collaboration event builder helper
 │   │   ├── routing/         # Top-level route resolver (explicit / llm / hybrid)
-│   │   └── tools/           # Tool registry (read-only / approval-write / exec-write; TBD)
+│   │   └── tools/           # Tool registry (read-only callable by agents / write executed by humans; TBD)
 │   ├── infras/              # Infrastructure: database / http / cache / event_bus / llm
 │   ├── schemas/             # Pydantic models: unified response / agent task IO
 │   ├── constants/           # Constants & enums (agent domain: AgentType / TaskStatus / EventType ...)
@@ -221,7 +221,7 @@ flowchart TB
         C1["Top-level graph: route → subgraph → aggregate"]
         C2["Agent registry (explicit / llm / hybrid routing)"]
         C3["Runtime (checkpointer / invoke / resume)"]
-        C4["Tool registry (3 permission levels; TBD)"]
+        C4["Tool registry (read/write permission; TBD)"]
     end
 
     subgraph BIZ["Business Logic Layer (services/)"]
@@ -291,7 +291,7 @@ Four steps to plug a new business agent into orchestration, without touching the
 3. **Register**: `agent_registry.register(AgentSpec(agent=YourAgent(), routing_hint="..."))` — the agent then appears in `/agents/specs` and the LLM routing candidate list;
 4. **Submit tasks**: via `POST /api/admin/v1/tasks` (explicit `task_type`, or leave it empty for LLM dynamic routing) — task lifecycle / human takeover / event audit work out of the box.
 
-> If the business agent needs external capabilities (DB access / retrieval / notification / approval-writes), register tools under `src/agents/tools/` following the `ToolRegistry` style and honor the 3-level permission constraints.
+> If the business agent needs external capabilities (DB access / retrieval / notification, etc.), register tools under `src/agents/tools/` following the `ToolRegistry` style: read-only tools are callable directly by agents; write tools are not registered to agents and are executed by humans/external executors.
 
 ### Key Components
 
@@ -300,9 +300,9 @@ Four steps to plug a new business agent into orchestration, without touching the
 | Top-level orchestration graph | Dispatch path, subgraph lifecycle, result aggregation | LangGraph `StateGraph`; compiled subgraphs registered as nodes; conditional dynamic routing |
 | Agent registry | "Who handles what" routing | `task_type → AgentSpec` map; lazy subgraph compile + cache; `list_routing_options` for LLM candidates |
 | Agent runtime | Execution & resume | `checkpointer` (memory/redis); `Command(resume=...)` checkpoint resume; interrupt detection → waiting_human |
-| Tool registry | External capabilities + permission (TBD) | 3 levels: read-only / approval-write / exec-write; insufficient permission raises auth error |
+| Tool registry | External capabilities + permission (TBD) | 2 levels: read-only (agent-callable) / write (human/external); insufficient permission raises auth error |
 | Event bus | Agent-to-agent messaging (dual-write wired) | Orchestration events are persisted and published; `InMemoryEventBus` (skeleton) / `RedisStreamEventBus` (prod reserved) |
-| RAG knowledge base | Gov / enterprise policy & FAQ retrieval (reserved) | Vector store (Milvus / pgvector) + source citations in phase 2 |
+| RAG knowledge base | Gov / enterprise policy & FAQ retrieval (reserved) | Vector store (Milvus / pgvector) + source citations to be added |
 
 ## 📖 API Documentation
 
@@ -320,7 +320,7 @@ Core API list (admin console, prefix `/api/admin/v1`):
 | --- | --- | --- |
 | GET | `/health` | Health probe (db / redis / agent_runtime status) |
 | GET | `/version` | App version |
-| POST | `/auth/login` | Login (reserved: phase-2 JWT + RBAC) |
+| POST | `/auth/login` | Login (reserved: JWT + RBAC) |
 | POST | `/auth/refresh` | Token refresh (reserved) |
 | GET | `/agents/specs` | Agent registry list (type / name / description / enabled) |
 | POST | `/tasks` | Submit an agent task (explicit task_type or leave empty for LLM dynamic routing) |
@@ -330,7 +330,7 @@ Core API list (admin console, prefix `/api/admin/v1`):
 | GET | `/events` | Collaboration event list (audit) |
 | GET | `/events/{event_id}` | Event detail (full payload) |
 
-**Access control**: skeleton phase — auth / rate limiting / circuit breaker / request ID are implemented but disabled by default (`src/core/middleware.py`); after phase-2 JWT + RBAC, admin endpoints require an `Authorization` header.
+**Access control**: skeleton phase — auth / rate limiting / circuit breaker / request ID are implemented but disabled by default (`src/core/middleware.py`); after JWT + RBAC is wired, admin endpoints require an `Authorization` header.
 
 ## 💾 Storage Configuration
 
@@ -338,7 +338,7 @@ Core API list (admin console, prefix `/api/admin/v1`):
 
 | Table | Description | Key columns |
 | --- | --- | --- |
-| `agent_tasks` | Agent task table (state machine / retry / thread id) | `task_type`, `status`, `thread_id`, `retry_count`, `approval_no`, `result(JSON)` |
+| `agent_tasks` | Agent task table (state machine / retry / thread id) | `task_type`, `status`, `thread_id`, `retry_count`, `result(JSON)` |
 | `agent_events` | Collaboration event table (audit trail) | `event_type`, `source_agent`, `payload(JSON)` |
 
 Config: `DATABASE_HOST / PORT / USER / PASSWORD / DATABASE`; when `DATABASE_ENABLED=true` the app auto-detects and creates missing tables on startup (idempotent — skipped when tables already exist; a connection failure does not block startup, DB endpoints return 503). To create tables manually: `uv run python -c "from src.infras.database import init_database; init_database()"`.

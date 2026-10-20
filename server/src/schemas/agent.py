@@ -42,4 +42,4 @@ class AgentTaskResumeIn(BaseModel):
 
     decision: str = Field(description="人工决策：approve / reject / adjust")
     remark: str | None = Field(default=None, description="人工备注")
-    extra: dict[str, Any] = Field(default_factory=dict, description="附加数据（如调整后的预算数值）")
+    extra: dict[str, Any] = Field(default_factory=dict, description="附加数据（人工补充的调整信息）")

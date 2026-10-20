@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "98b3803c-7d06-402d-87f8-c3f0298ff9e0",
     "name": "北辰（BeiChen）",
-    "description": "北辰 x-BeiChen 后端接口集合（FastAPI）。\n\n目录结构：api → v1 → 接口分类 → 具体接口。\n完整服务前缀为 /api/admin/v1，其中固定段 /admin 已并入 base_url 变量。\n\n变量说明：\n- base_url：服务地址（默认本地开发 http://localhost:6666/api/admin/v1）\n- task_id / event_id / customer_id：路径参数示例值，调试时替换为真实 ID\n\n接口分类（19 个）：健康检查 2、认证 2（预留 501）、Agent 任务管理 7、商务对话 Agent 2、数据监控 2、客户管理 Agent 4。",
+    "description": "北辰 x-BeiChen 后端接口集合（FastAPI）。\n\n目录结构：api → v1 → 接口分类 → 具体接口。\n完整服务前缀为 /api/admin/v1，其中固定段 /admin 已并入 base_url 变量。\n\n变量说明：\n- base_url：服务地址（默认本地开发 http://localhost:8866/api/admin/v1）\n- task_id / event_id：路径参数示例值，调试时替换为真实 ID\n\n接口分类（11 个）：健康检查 2、认证 2（预留 501）、Agent 任务管理 7。",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [
@@ -25,8 +25,12 @@
                     "header": [],
                     "url": {
                       "raw": "{{base_url}}/health",
-                      "host": ["{{base_url}}"],
-                      "path": ["health"]
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "health"
+                      ]
                     },
                     "description": "返回服务存活状态及依赖组件（database / redis / agent_runtime）状态，供负载均衡与运维探针使用，不依赖数据库。"
                   },
@@ -39,8 +43,12 @@
                     "header": [],
                     "url": {
                       "raw": "{{base_url}}/version",
-                      "host": ["{{base_url}}"],
-                      "path": ["version"]
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "version"
+                      ]
                     },
                     "description": "返回 app_id / app_name / version / python_requires。"
                   },
@@ -50,7 +58,7 @@
             },
             {
               "name": "认证",
-              "description": "认证接口为生产级特性，本期骨架返回 501，二期接入 JWT + RBAC。",
+              "description": "认证接口为生产级特性，骨架阶段返回 501（预留：JWT + RBAC）。",
               "item": [
                 {
                   "name": "POST /auth/login 登录（预留）",
@@ -68,10 +76,15 @@
                     },
                     "url": {
                       "raw": "{{base_url}}/auth/login",
-                      "host": ["{{base_url}}"],
-                      "path": ["auth", "login"]
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "auth",
+                        "login"
+                      ]
                     },
-                    "description": "二期接入 JWT + RBAC，当前返回 501 Not Implemented。body 为未来形态示例，现不被消费。"
+                    "description": "预留接口，当前返回 501 Not Implemented。body 为未来形态示例，现不被消费。"
                   },
                   "response": []
                 },
@@ -91,10 +104,15 @@
                     },
                     "url": {
                       "raw": "{{base_url}}/auth/refresh",
-                      "host": ["{{base_url}}"],
-                      "path": ["auth", "refresh"]
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "auth",
+                        "refresh"
+                      ]
                     },
-                    "description": "令牌刷新预留接口，二期接入，当前返回 501。"
+                    "description": "令牌刷新预留接口，当前返回 501。"
                   },
                   "response": []
                 }
@@ -111,10 +129,15 @@
                     "header": [],
                     "url": {
                       "raw": "{{base_url}}/agents/specs",
-                      "host": ["{{base_url}}"],
-                      "path": ["agents", "specs"]
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "agents",
+                        "specs"
+                      ]
                     },
-                    "description": "返回当前已注册 Agent 清单（type / name / description / enabled），无需查库。"
+                    "description": "返回当前已注册 Agent 清单（type / name / description / enabled），无需查库。当前注册表为空，注册新 Agent 后自动列出。"
                   },
                   "response": []
                 },
@@ -130,14 +153,18 @@
                     ],
                     "body": {
                       "mode": "raw",
-                      "raw": "{\n    \"task_type\": \"monitor\",\n    \"payload\": {\n        \"account_id\": \"acc_default\",\n        \"campaign_id\": \"camp_001\"\n    }\n}"
+                      "raw": "{\n    \"task_type\": \"your_agent_type\",\n    \"payload\": {\n        \"query\": \"...\"\n    }\n}"
                     },
                     "url": {
                       "raw": "{{base_url}}/tasks",
-                      "host": ["{{base_url}}"],
-                      "path": ["tasks"]
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "tasks"
+                      ]
                     },
-                    "description": "提交任务并同步执行。\n\ntask_type 显式指定则直接路由；留空时由 LLM 根据 query/payload 自然语言动态选择。\n\npayload 按 Agent 选用字段：\n- monitor: {account_id?, campaign_id?}（account_id 默认 acc_default）\n- business_chat: {message!, customer_id?}\n- customer: {scope?（full/due_followup/by_ids/report，默认 due_followup）, customer_ids?（by_ids 必填）, report_type?（daily/weekly）}"
+                    "description": "提交任务并同步执行。\n\ntask_type 显式指定则直接路由；留空时由 LLM 根据 query/payload 自然语言动态选择。\n\npayload 按最终路由到的 Agent 选用对应字段（各 Agent 自定义结构）。当前注册表为空：提交 AgentType 枚举之外的类型返回 422；枚举但未注册的类型返回「任务类型未注册 Agent」。"
                   },
                   "response": []
                 },
@@ -148,20 +175,24 @@
                     "header": [],
                     "url": {
                       "raw": "{{base_url}}/tasks?page=1&page_size=20",
-                      "host": ["{{base_url}}"],
-                      "path": ["tasks"],
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "tasks"
+                      ],
                       "query": [
                         {
                           "key": "status",
                           "value": "",
                           "disabled": true,
-                          "description": "按任务状态过滤：pending/running/success/failed/waiting_human 等"
+                          "description": "按任务状态过滤：pending/assigned/running/success/failed/waiting_human/abandoned 等"
                         },
                         {
                           "key": "task_type",
                           "value": "",
                           "disabled": true,
-                          "description": "按任务类型过滤：monitor/business_chat/customer"
+                          "description": "按任务类型过滤：content/customer_service/security/data_analysis/data_monitor"
                         },
                         {
                           "key": "page",
@@ -184,8 +215,13 @@
                     "header": [],
                     "url": {
                       "raw": "{{base_url}}/tasks/{{task_id}}",
-                      "host": ["{{base_url}}"],
-                      "path": ["tasks", "{{task_id}}"]
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "tasks",
+                        "{{task_id}}"
+                      ]
                     },
                     "description": "查询单个任务详情（含 payload / result / status / thread_id / error_message）。task_id 用集合变量，调试时替换为真实 ID。"
                   },
@@ -203,14 +239,20 @@
                     ],
                     "body": {
                       "mode": "raw",
-                      "raw": "{\n    \"decision\": \"approve\",\n    \"remark\": \"同意系统建议\",\n    \"extra\": {\n        \"budget\": 1500\n    }\n}"
+                      "raw": "{\n    \"decision\": \"approve\",\n    \"remark\": \"已人工处理\",\n    \"extra\": {}\n}"
                     },
                     "url": {
                       "raw": "{{base_url}}/tasks/{{task_id}}/resume",
-                      "host": ["{{base_url}}"],
-                      "path": ["tasks", "{{task_id}}", "resume"]
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "tasks",
+                        "{{task_id}}",
+                        "resume"
+                      ]
                     },
-                    "description": "人工接管：恢复被 interrupt 暂停（waiting_human）的任务。\n\ndecision: approve / reject / adjust；extra 可携带调整后的数值（如预算）。"
+                    "description": "人工接管：恢复被 interrupt 暂停（waiting_human）的任务。\n\ndecision: approve / reject / adjust；remark 为人工备注；extra 携带人工补充信息。"
                   },
                   "response": []
                 },
@@ -221,14 +263,18 @@
                     "header": [],
                     "url": {
                       "raw": "{{base_url}}/events?page=1&page_size=20",
-                      "host": ["{{base_url}}"],
-                      "path": ["events"],
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "events"
+                      ],
                       "query": [
                         {
                           "key": "event_type",
                           "value": "",
                           "disabled": true,
-                          "description": "按事件类型过滤：alert_raised/suggestion_created/followup_created/report_generated 等"
+                          "description": "按事件类型过滤：task_failed 等（EventType 枚举）"
                         },
                         {
                           "key": "page",
@@ -251,226 +297,15 @@
                     "header": [],
                     "url": {
                       "raw": "{{base_url}}/events/{{event_id}}",
-                      "host": ["{{base_url}}"],
-                      "path": ["events", "{{event_id}}"]
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "events",
+                        "{{event_id}}"
+                      ]
                     },
                     "description": "单条协作事件详情，含完整 payload。"
-                  },
-                  "response": []
-                }
-              ]
-            },
-            {
-              "name": "商务对话 Agent",
-              "description": "business_chat 子图语义化入口：客户咨询发送（intent → RAG → generate）与人工接管回复。",
-              "item": [
-                {
-                  "name": "POST /chat/send 发送客户咨询消息",
-                  "request": {
-                    "method": "POST",
-                    "header": [
-                      {
-                        "key": "Content-Type",
-                        "value": "application/json"
-                      }
-                    ],
-                    "body": {
-                      "mode": "raw",
-                      "raw": "{\n    \"message\": \"预算花太快了怎么办？\",\n    \"customer_id\": \"cus_001\"\n}"
-                    },
-                    "url": {
-                      "raw": "{{base_url}}/chat/send",
-                      "host": ["{{base_url}}"],
-                      "path": ["chat", "send"]
-                    },
-                    "description": "提交一条商务对话消息（business_chat 子图：intent → RAG → generate），同步返回 reply / intent / sources；命中人工关键词时 status=waiting_human。"
-                  },
-                  "response": []
-                },
-                {
-                  "name": "POST /chat/{task_id}/human-reply 人工接管回复",
-                  "request": {
-                    "method": "POST",
-                    "header": [
-                      {
-                        "key": "Content-Type",
-                        "value": "application/json"
-                      }
-                    ],
-                    "body": {
-                      "mode": "raw",
-                      "raw": "{\n    \"decision\": \"approve\",\n    \"remark\": \"人工回复：已为您记录并加急处理\",\n    \"extra\": {}\n}"
-                    },
-                    "url": {
-                      "raw": "{{base_url}}/chat/{{task_id}}/human-reply",
-                      "host": ["{{base_url}}"],
-                      "path": ["chat", "{{task_id}}", "human-reply"]
-                    },
-                    "description": "恢复被 interrupt 暂停的对话任务，从检查点续跑并返回后续结果。decision 仅接受 approve/reject/adjust。"
-                  },
-                  "response": []
-                }
-              ]
-            },
-            {
-              "name": "数据监控",
-              "description": "monitor 子图：巡检触发（按账户提交监控任务）与告警事件查询。",
-              "item": [
-                {
-                  "name": "POST /monitoring/scan 手动触发监控巡检",
-                  "request": {
-                    "method": "POST",
-                    "header": [
-                      {
-                        "key": "Content-Type",
-                        "value": "application/json"
-                      }
-                    ],
-                    "body": {
-                      "mode": "raw",
-                      "raw": "[\n    \"acc_default\"\n]"
-                    },
-                    "url": {
-                      "raw": "{{base_url}}/monitoring/scan",
-                      "host": ["{{base_url}}"],
-                      "path": ["monitoring", "scan"]
-                    },
-                    "description": "对每个账户提交一个 monitor 任务，返回 task_ids。请求体为字符串数组；传 null 或缺省则使用默认账户 acc_default。"
-                  },
-                  "response": []
-                },
-                {
-                  "name": "GET /monitoring/alerts 告警事件列表",
-                  "request": {
-                    "method": "GET",
-                    "header": [],
-                    "url": {
-                      "raw": "{{base_url}}/monitoring/alerts?page=1&page_size=20",
-                      "host": ["{{base_url}}"],
-                      "path": ["monitoring", "alerts"],
-                      "query": [
-                        {
-                          "key": "page",
-                          "value": "1"
-                        },
-                        {
-                          "key": "page_size",
-                          "value": "20"
-                        }
-                      ]
-                    },
-                    "description": "查询 alert_raised 告警事件（管理后台告警面板）。suggestion_created 属建议单，不在此口径内。"
-                  },
-                  "response": []
-                }
-              ]
-            },
-            {
-              "name": "客户管理 Agent",
-              "description": "customer 子图：跟进巡检 / 指定客户 / 全量 / 报表任务，以及跟进记录与报表查询。",
-              "item": [
-                {
-                  "name": "POST /customers/run 提交客户管理 Agent 任务",
-                  "request": {
-                    "method": "POST",
-                    "header": [
-                      {
-                        "key": "Content-Type",
-                        "value": "application/json"
-                      }
-                    ],
-                    "body": {
-                      "mode": "raw",
-                      "raw": "{\n    \"scope\": \"due_followup\"\n}"
-                    },
-                    "url": {
-                      "raw": "{{base_url}}/customers/run",
-                      "host": ["{{base_url}}"],
-                      "path": ["customers", "run"]
-                    },
-                    "description": "提交 customer 子图任务。\n\nscope 取值：\n- due_followup（默认）跟进到期巡检\n- by_ids 指定客户（customer_ids 必填）\n- full 全量巡检\n- report 报表任务\n\nby_ids 示例：{\"scope\": \"by_ids\", \"customer_ids\": [\"cus_001\"]}"
-                  },
-                  "response": []
-                },
-                {
-                  "name": "POST /customers/reports/trigger 手动触发客户报表",
-                  "request": {
-                    "method": "POST",
-                    "header": [
-                      {
-                        "key": "Content-Type",
-                        "value": "application/json"
-                      }
-                    ],
-                    "body": {
-                      "mode": "raw",
-                      "raw": "{\n    \"report_type\": \"daily\",\n    \"customer_ids\": null\n}"
-                    },
-                    "url": {
-                      "raw": "{{base_url}}/customers/reports/trigger",
-                      "host": ["{{base_url}}"],
-                      "path": ["customers", "reports", "trigger"]
-                    },
-                    "description": "不经子图，直接由 ReportService 做确定性模板聚合并落库 customer_reports。report_type: daily / weekly；customer_ids 为 null 时全量。"
-                  },
-                  "response": []
-                },
-                {
-                  "name": "GET /customers/reports 报表列表",
-                  "request": {
-                    "method": "GET",
-                    "header": [],
-                    "url": {
-                      "raw": "{{base_url}}/customers/reports?page=1&page_size=20",
-                      "host": ["{{base_url}}"],
-                      "path": ["customers", "reports"],
-                      "query": [
-                        {
-                          "key": "report_type",
-                          "value": "",
-                          "disabled": true,
-                          "description": "daily / weekly"
-                        },
-                        {
-                          "key": "customer_id",
-                          "value": "",
-                          "disabled": true
-                        },
-                        {
-                          "key": "page",
-                          "value": "1"
-                        },
-                        {
-                          "key": "page_size",
-                          "value": "20"
-                        }
-                      ]
-                    },
-                    "description": "报表分页列表（自动出报表与手动触发的报表在此统一可查）。"
-                  },
-                  "response": []
-                },
-                {
-                  "name": "GET /customers/{customer_id}/followups 跟进记录列表",
-                  "request": {
-                    "method": "GET",
-                    "header": [],
-                    "url": {
-                      "raw": "{{base_url}}/customers/{{customer_id}}/followups?page=1&page_size=20",
-                      "host": ["{{base_url}}"],
-                      "path": ["customers", "{{customer_id}}", "followups"],
-                      "query": [
-                        {
-                          "key": "page",
-                          "value": "1"
-                        },
-                        {
-                          "key": "page_size",
-                          "value": "20"
-                        }
-                      ]
-                    },
-                    "description": "查询指定客户的跟进记录（customer 子图确定性产出，可审计）。customer_id 用集合变量，默认 cus_001。"
                   },
                   "response": []
                 }
@@ -484,7 +319,7 @@
   "variable": [
     {
       "key": "base_url",
-      "value": "http://localhost:6666/api/admin/v1",
+      "value": "http://localhost:8866/api/admin/v1",
       "type": "string"
     },
     {
@@ -495,11 +330,6 @@
     {
       "key": "event_id",
       "value": "1",
-      "type": "string"
-    },
-    {
-      "key": "customer_id",
-      "value": "cus_001",
       "type": "string"
     }
   ]
