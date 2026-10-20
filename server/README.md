@@ -1,12 +1,12 @@
-# 北辰 x-BeiChen（Agent 编排平台）
+# 北辰 x-BeiChen（多 Agent 编排平台）
 
-面向「广告联盟商务自动化 SaaS + 出海营销智能平台」的多 Agent 编排平台：用 LangGraph 编排 Agent 协作、LangChain 组装模型能力、映射表路由任务派发，资金类操作统一过审批闸门。
+面向政企客户的多 Agent 编排平台后端：用 LangGraph 编排 Agent 协作、LangChain 组装模型能力、注册表路由任务派发（显式 / LLM 动态 / 混合），任务全生命周期可审计，资金类写操作统一过审批闸门。
 
 [English](README.en.md) | 中文
 
 ![Python](https://img.shields.io/badge/Python-3.11%2B-3776AB?logo=python&logoColor=white)
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.115%2B-009688?logo=fastapi&logoColor=white)
-![LangGraph](https://img.shields.io/badge/LangGraph-0.2%2B-1C3C3C)
+![LangGraph](https://img.shields.io/badge/LangGraph-1.2%2B-1C3C3C)
 ![LangChain](https://img.shields.io/badge/LangChain-0.3%2B-1C3C3C?logo=langchain&logoColor=white)
 ![SQLAlchemy](https://img.shields.io/badge/SQLAlchemy-2.0%2B-D71F00?logo=sqlalchemy&logoColor=white)
 ![MySQL](https://img.shields.io/badge/MySQL-8.0-4479A1?logo=mysql&logoColor=white)
@@ -21,12 +21,15 @@
 
 ## 💡 项目介绍
 
-北辰是基于 **LangGraph + LangChain** 的 Agent 编排平台，承载两大业务方向：
+北辰是基于 **LangGraph + LangChain** 的 Agent 编排平台，面向政企客户（政务、人社、企业服务等）按需注册业务 Agent：
 
-- **广告联盟商务自动化 SaaS**：商务对话 Agent 自动接待客户咨询（RAG 政策问答）、数据监控 Agent 自动巡检投放数据并告警建议、客户管理 Agent（当前为演示：四步链路骨架，业务接入后跟进客户状态 / 自动出报表）；
-- **出海营销智能平台**：内容创作 Agent 生成多语言素材、客服转化 Agent 引导成交、投放洞察 Agent 总结素材表现与竞品动态。
+- **编排内核已交付**：顶层调度图（route → 子图节点 → aggregate）、Agent 注册表（映射表路由 + LLM 动态路由）、运行时（checkpointer / invoke / resume 断点续跑）、任务门面（提交 / 查询 / 人工接管 / 事件审计）；
+- **业务 Agent 即插即用**：每个业务 Agent 实现 `BaseAgent` 并注册到注册表，即自动纳入顶层路由与任务分发，无需改编排层；
+- **扩展机制完善**：工具注册中心（只读 / 审批写 / 执行写三级权限）、事件总线（落库 + 广播双写）、RAG 知识底座预留（二期接向量库，回答带来源溯源）。
 
-平台坚持三条工程铁律：**资金操作必过审批闸门**（审批写工具 + 审批单留痕）、**事件全链路可审计**（事件总线 + 落库）、**Agent 回答有依据**（RAG 检索带来源溯源）。一期广告审批系统为独立项目，北辰通过审批闸门与其对接。
+平台坚持三条工程铁律：**资金操作必过审批闸门**（审批写工具 + 审批单留痕）、**事件全链路可审计**（事件总线 + `agent_events` 落库）、**Agent 回答有依据**（RAG 检索带来源溯源）。
+
+**当前状态**：原有固定工作流 Agent（数据监控 / 商务对话 / 客户管理）已随定位调整移除，注册表为空；编排骨架（顶层图 / 注册表 / 运行时 / 任务 / 事件）可独立运行，新业务 Agent 注册即扩展。
 
 ## 🚀 快速开始
 
@@ -38,7 +41,7 @@
 | **Linux** | Ubuntu 22.04+ / CentOS 8+；`apt install python3.11 python3.11-venv` 或使用 pyenv |
 | **macOS** | macOS 13+；`brew install python@3.11 uv` |
 
-> 数据库（MySQL）与缓存（Redis）非强制：骨架阶段 `DATABASE_ENABLED=false`、`REDIS_ENABLED=false` 即可本地运行，业务接口会返回 503 提示开启方式。
+> 数据库（MySQL）与缓存（Redis）非强制：骨架阶段 `DATABASE_ENABLED=false`、`REDIS_ENABLED=false` 即可本地运行，DB 相关接口会返回 503 提示开启方式。
 
 ### 2. 项目代码克隆
 
@@ -51,7 +54,6 @@ cd x-BeiChen/server
 
 ```bash
 uv sync          # 标准安装并锁定依赖（生成 uv.lock）
-# 或使用已预置的虚拟环境：python -m venv .venv && .venv/Scripts/pip install -r <由 uv lock 导出>
 ```
 
 ### 4. 环境配置
@@ -73,8 +75,9 @@ cp .env.example .env
 | `REDIS_ENABLED` | `false` | 是否启用 Redis（缓存 / 事件总线 / 检查点） |
 | `AI_LLM_API_KEY` | 空 | 配置后自动从 Mock 切换到真实模型（OpenAI 兼容协议） |
 | `AI_LLM_BASE_URL` | 方舟 v3 | LLM 服务地址，可对接豆包方舟 / DeepSeek / 本地 vLLM |
+| `AGENT_ENABLED` | `true` | Agent 编排总开关 |
 | `AGENT_CHECKPOINT` | `memory` | Agent 检查点：memory（开发）/ redis（生产） |
-| `BEICHEN_SCHEDULER_ENABLED` | `false` | 定时任务总开关：监控巡检 15 分钟/轮、客户跟进巡检 6 小时/轮、客户日报 08:00 |
+| `AGENT_ROUTE_MODE` | `hybrid` | 顶层路由模式：explicit / llm / hybrid（见「路由模式」） |
 
 ### 5. 服务启动
 
@@ -119,50 +122,30 @@ uv run mypy src
 
 # 依赖漏洞扫描
 uv run pip-audit
-
-# 编排层端到端自检（无需数据库，验证 4 条核心链路）
-uv run python scripts/verify_agent_flow.py
 ```
 
 ### 7. 使用方法示例
 
-提交一个数据监控任务（自动巡检并触发告警建议）：
-
 ```bash
+# 1) 查看当前已注册的 Agent（当前为空；注册新 Agent 后自动列出）
+curl http://127.0.0.1:8866/api/admin/v1/agents/specs
+
+# 2) 提交一个 Agent 任务（以已注册的 task_type 为例，显式指定）
 curl -X POST http://127.0.0.1:8866/api/admin/v1/tasks \
   -H "Content-Type: application/json" \
-  -d '{"task_type": "monitor", "payload": {"account_id": "acc_001", "campaign_id": "camp_001"}}'
+  -d '{"task_type": "your_agent_type", "payload": {"query": "..."}}'
+
+# 3) 查询任务列表 / 事件列表（审计）
+curl http://127.0.0.1:8866/api/admin/v1/tasks
+curl http://127.0.0.1:8866/api/admin/v1/events
+
+# 4) 人工接管恢复（任务 interrupt 暂停后，按任务 id 恢复续跑）
+curl -X POST http://127.0.0.1:8866/api/admin/v1/tasks/1/resume \
+  -H "Content-Type: application/json" \
+  -d '{"decision": "approve", "remark": "已人工处理"}'
 ```
 
-响应中的 `events` 会包含 `suggestion_created` 建议事件；若建议涉及资金操作，`approval_no` 保持为空——由审批闸门（二期对接广告审批系统）接管，资金操作不直接执行。
-
-发送一条商务咨询（专属入口，无需自行拼 task_type）：
-
-```bash
-# 普通咨询：直接返回机器人回复（RAG 带来源 sources）
-curl -X POST http://127.0.0.1:8866/api/admin/v1/chat/send \
-  -H "Content-Type: application/json" \
-  -d '{"message": "请问结算周期多久？", "customer_id": "cust_001"}'
-
-# 命中人工关键词（人工/投诉/退款/经理）：status=waiting_human，再用任务 id 人工回复
-curl -X POST http://127.0.0.1:8866/api/admin/v1/chat/123/human-reply \
-  -H "Content-Type: application/json" \
-  -d '{"decision": "approve", "remark": "人工已介入处理投诉"}'
-```
-
-提交一轮客户管理 Agent 任务（演示，专属入口，走 customer 子图）：
-
-```bash
-# 跟进到期巡检（默认 scope=due_followup）
-curl -X POST http://127.0.0.1:8866/api/admin/v1/customers/run \
-  -H "Content-Type: application/json" \
-  -d '{"scope": "due_followup"}'
-
-# 指定客户 / 报表任务
-curl -X POST http://127.0.0.1:8866/api/admin/v1/customers/run \
-  -H "Content-Type: application/json" \
-  -d '{"scope": "by_ids", "customer_ids": ["cust_001", "cust_002"]}'
-```
+> 说明：当前注册表为空——提交 `AgentType` 枚举之外的任务类型会返回 422 校验错误；枚举但未注册的类型返回「任务类型未注册 Agent」错误；注册新 Agent 后即可正常路由执行（见「接入一个新的业务 Agent」）。
 
 ### 8. 常见问题排查
 
@@ -170,8 +153,9 @@ curl -X POST http://127.0.0.1:8866/api/admin/v1/customers/run \
 | --- | --- |
 | 端口被占用 `address already in use` | 换端口：`--port 8001`，或 `lsof -i:8866`（macOS/Linux）/ `netstat -ano \| findstr 8866`（Windows）定位占用进程 |
 | `uv` 命令不存在 | 安装 uv：`pip install uv` 或 `curl -LsSf https://astral.sh/uv/install.sh \| sh` |
-| 业务接口返回 503 | 数据库未启用：设置 `DATABASE_ENABLED=true` 并配置 `DATABASE_HOST/PORT/USER/PASSWORD/DATABASE` |
+| DB 接口返回 503 | 数据库未启用：设置 `DATABASE_ENABLED=true` 并配置 `DATABASE_HOST/PORT/USER/PASSWORD/DATABASE` |
 | 数据库连接失败 `Can't connect to MySQL server` | 确认 MySQL 已启动、账号有权限；`DATABASE_ENABLED=true` 时应用启动会自动建表，连接失败不阻断启动（接口 503） |
+| 提交任务报「任务类型未注册 Agent」 | 注册表为空或该 task_type 未注册：实现并注册业务 Agent 后再提交（见「接入一个新的业务 Agent」） |
 | 配置未生效 | 配置优先级：环境变量 > `config.{env}.yaml` > `config.yaml` > 代码默认值；检查 `.env` 是否复制且键名正确 |
 | LLM 回复为 mock 内容 | 未配置 `AI_LLM_API_KEY`，配置后自动切换真实模型 |
 
@@ -182,47 +166,35 @@ server/
 ├── src/
 │   ├── main.py              # 应用入口：create_app / lifespan / 中间件与路由装配
 │   ├── api/                 # API 接口层：HTTP 接入、参数解析、依赖装配
-│   │   ├── dependencies.py  # 公共依赖注入（DB 会话、服务装配）
+│   │   ├── dependencies.py  # 公共依赖注入（DB 会话、任务服务装配）
 │   │   ├── response.py      # 统一响应（ApiResponse 包装：code/message/data/timestamp）
 │   │   ├── router.py        # 中央路由（/api/admin/...）
-│   │   └── admin/v1/        # 路由组：health / auth(预留) / agents / monitoring / customers
+│   │   └── admin/v1/        # 路由组：health / auth(预留) / agent_task(agents/tasks/events)
 │   ├── services/            # 业务逻辑层：规则与事务编排（禁读 Request）
-│   │   ├── agent_task_service.py        # 任务提交/恢复/查询/事件落库（任务门面）
-│   │   ├── monitoring_service.py         # 巡检触发 / 告警查询
-│   │   ├── customer_service.py           # 客户快照 / 跟进记录（客户管理 Agent）
-│   │   └── report_service.py             # 客户报表生成 / 查询（确定性模板聚合）
+│   │   └── agent_task_service.py        # 任务提交/恢复/查询/事件落库（任务门面）
 │   ├── repositories/        # 数据访问层：纯 CRUD，无业务判断
 │   │   ├── base_repository.py            # 通用 CRUD 基类
 │   │   ├── agent_task_repository.py      # Agent 任务表访问
-│   │   ├── agent_event_repository.py     # 协作事件表访问
-│   │   ├── customer_repository.py        # 客户表访问（含跟进到期查询）
-│   │   ├── customer_followup_repository.py  # 跟进记录表访问
-│   │   └── customer_report_repository.py     # 报表表访问
+│   │   └── agent_event_repository.py     # 协作事件表访问
 │   ├── models/entities/     # SQLAlchemy ORM 实体
 │   │   ├── agent_task.py    # agent_tasks 任务表（状态机/重试/审批单号）
-│   │   ├── agent_event.py   # agent_events 事件表（审计留痕）
-│   │   ├── customer.py      # customers 客户表（状态/跟进节奏）
-│   │   ├── customer_followup.py  # customer_followups 跟进记录表
-│   │   └── customer_report.py    # customer_reports 报表产物表
+│   │   └── agent_event.py   # agent_events 事件表（审计留痕）
 │   ├── agents/              # Agent 编排层（LangGraph + LangChain 标准实现）
 │   │   ├── orchestrator.py  # 顶层调度中枢：route → 子图节点 → aggregate
-│   │   ├── registry.py      # Agent 注册表（映射表路由：派给谁）
+│   │   ├── registry.py      # Agent 注册表（映射表路由：派给谁，当前为空）
 │   │   ├── runtime.py       # 运行时：checkpointer / invoke / resume（断点续跑）
 │   │   ├── state.py         # 状态 TypedDict（顶层与子图合并契约）
 │   │   ├── base.py          # BaseAgent 抽象基类（子图构建契约）
-│   │   ├── tools/           # 工具注册中心（只读/审批写/执行写 三级权限）
-│   │   ├── monitor/         # 数据监控 Agent 子图
-│   │   ├── business_chat/   # 商务对话 Agent 子图
-│   │   └── customer/        # 客户管理 Agent 子图（演示：四步链路骨架）
+│   │   ├── events.py        # 协作事件构造 helper
+│   │   ├── routing/         # 顶层路由决策器（explicit / llm / hybrid）
+│   │   └── tools/           # 工具注册中心（只读/审批写/执行写 三级权限，待业务注册）
 │   ├── infras/              # 基础设施层：database / http / cache / event_bus / llm
-│   ├── schemas/             # Pydantic 模型：统一响应 / Agent 任务入出参 / 客户报表入参
-│   ├── constants/           # 常量与枚举（含 Agent 编排域枚举、CustomerStatus）
+│   ├── schemas/             # Pydantic 模型：统一响应 / Agent 任务入出参
+│   ├── constants/           # 常量与枚举（Agent 编排域：AgentType / TaskStatus / EventType 等）
 │   ├── core/                # 全局支撑：config / logger / exceptions / middleware
-│   ├── scheduling/          # 定时任务（APScheduler：监控巡检 / 客户跟进巡检 / 客户日报）
-│   ├── templates/prompts/   # 提示词模板（与节点代码分离，便于运营迭代）
+│   ├── scheduling/          # 通用调度器（APScheduler，业务 job 待装配）
+│   ├── templates/prompts/   # 提示词模板（routing.yaml 路由提示词）
 │   └── utils/               # 无状态工具：helpers（脱敏/路径）/ convert（类型转换）
-├── scripts/
-│   └── verify_agent_flow.py # 编排层端到端自检脚本
 ├── pyproject.toml           # 项目元数据与依赖声明（uv）
 ├── .env.example             # 环境变量示例
 ├── config.yaml.example      # YAML 配置示例（复制为 config.yaml）
@@ -235,33 +207,29 @@ server/
 
 ```mermaid
 flowchart TB
-    subgraph Web["接入层（web/ 独立仓库）"]
+    subgraph Web["接入层（web/ 独立仓库，规划中）"]
         W1["管理后台前端"]
-        W2["客户触点（IM / Web）"]
+        W2["政企客户触点（IM / Web）"]
     end
 
     subgraph API["API 接口层（api/）"]
-        A1["/api/admin/v1：health / agents / tasks / monitoring / customers"]
+        A1["/api/admin/v1：health / auth / agents / tasks / events"]
         A2["统一响应 + 全局异常"]
     end
 
     subgraph ORCH["Agent 编排层（agents/）"]
         C1["顶层编排图：route → 子图节点 → aggregate"]
-        C2["业务子图：数据监控 / 商务对话 / 客户管理（演示）"]
-        C3["Agent 注册表（映射表路由）"]
-        C4["工具注册中心（三级权限）"]
+        C2["Agent 注册表（explicit / llm / hybrid 路由）"]
+        C3["运行时（checkpointer / invoke / resume）"]
+        C4["工具注册中心（三级权限，待业务注册）"]
     end
 
     subgraph BIZ["业务逻辑层（services/）"]
-        D1["AgentTaskService"]
-        D2["MonitoringService"]
-        D3["CustomerService"]
-        D4["ReportService"]
+        D1["AgentTaskService（任务门面）"]
     end
 
     subgraph DATA["数据访问层（repositories/ + models/）"]
         E1["agent_tasks / agent_events"]
-        E2["customers / customer_followups / customer_reports"]
     end
 
     subgraph INFRA["基础设施层（infras/ + core/）"]
@@ -277,84 +245,64 @@ flowchart TB
     DATA --> INFRA
 ```
 
-### 已注册 Agent 子图工作流（server 当前交付）
+### Agent 编排核心
 
-三者均为**固定编排的条件分支流程**（图路由由代码写死），不是 LLM 自主决策的纯智能体；差异在于节点内部是否调用 LLM。
-
-| Agent | 类型 | 是否用 LLM | 关键机制 |
-| --- | --- | --- | --- |
-| monitor 数据监控 | 纯规则（阈值判定） | 否 | 条件边：正常结束 / 异常告警 |
-| business_chat 商务对话 | 固定编排 + LLM | 是（生成节点） | 规则意图分类 + RAG + interrupt 转人工 |
-| customer 客户管理 | 演示（固定编排，无 LLM） | 否 | 线性四节点演示链路；业务接入后规则判定 + 模板报表 |
-
-#### 1. monitor 数据监控 Agent（纯规则，无 LLM）
-
-定时巡检广告投放数据，预算消耗率超阈值即告警；涉及资金写不直接执行，`SUGGESTION_CREATED` 事件交审批闸门（二期）。
+顶层调度图把任务从「提交」到「执行完成 / 人工接管」串成一条可审计链路：
 
 ```mermaid
 flowchart TB
-    START([START]) --> PULL["pull 拉取投放数据<br/>ads.get_campaign_stats（只读工具）"]
-    PULL --> CALC["calc 计算指标<br/>成本 / 转化 / CPC / 转化率 / 预算消耗率"]
-    CALC --> JUDGE{"judge 阈值判定<br/>预算消耗率 > 60% ?"}
-    JUDGE -- "正常 normal" --> END_OK([END])
-    JUDGE -- "异常 alert" --> ALERT["alert 告警 + 建议<br/>即时告警 notification.send_alert<br/>事件 ALERT_RAISED + SUGGESTION_CREATED"]
-    ALERT --> END_ALERT([END])
+    START([START]) --> ROUTE["route 路由节点<br/>RouteResolver：explicit 查表 / llm 动态选 / hybrid 显式优先"]
+    ROUTE -->|"target_agent 命中注册表"| SUB["业务子图节点（编译后挂载）<br/>子图内：节点 + 条件边 + 状态机"]
+    SUB --> AGG["aggregate 聚合节点<br/>归一化 status / result / events"]
+    AGG --> ENDN([END])
+    ROUTE -->|"未注册 / 路由失败"| ERR["抛错 → runtime 回写 failed"]
+    ERR --> ENDN
 ```
 
-#### 2. business_chat 商务对话 Agent（固定编排 + LLM）
-
-规则关键词识别意图，RAG 检索政策后由 LLM 生成回复；命中人工关键词在 generate 节点 `interrupt()` 暂停，人工 `resume` 后续跑。
-
-```mermaid
-flowchart TB
-    START([START]) --> INTENT["intent 意图识别（规则关键词）<br/>命中 人工/投诉/退款/经理 → human_required"]
-    INTENT --> RETRIEVE["retrieve RAG 检索<br/>rag.retrieve top_k=3，政策/FAQ，带来源 sources"]
-    RETRIEVE --> GEN{"generate 生成回复<br/>human_required → interrupt 暂停等待人工"}
-    GEN -- "need_human 转人工" --> TRANSFER["transfer 转人工<br/>记录人工接管事件"]
-    TRANSFER --> END_HUMAN([END])
-    GEN -- "normal 咨询政策" --> END_BOT([END：LLM 基于 RAG 生成回复])
-```
-
-#### 3. customer 客户管理 Agent（演示，无 LLM）
-
-当前为演示实现：四步链路（fetch → evaluate → compose → dispatch）只产出演示数据，**不读库 / 不落库 / 不发业务事件**（任务调度保留——调度器经 `submit_task` 提交任务）。业务接入后按节点 TODO 替换为真实逻辑：确定性规则判定跟进动作 + 模板聚合报表；不生成审批建议，续约资金动作归审批闸门。
+任务状态机（`agent_tasks.status`）：
 
 ```mermaid
 flowchart LR
-    START([START]) --> FETCH["fetch 拉客户快照（演示）<br/>业务接入后：scope=due_followup / by_ids / all"]
-    FETCH --> EVAL["evaluate 跟进判定（演示）<br/>业务接入后：跟进到期 / 沉睡预警 30 天 / 合同到期 30 天"]
-    EVAL --> COMPOSE["compose 编排任务（演示）<br/>followup 任务；scope=report 追加报表任务"]
-    COMPOSE --> DISPATCH["dispatch 执行（演示）<br/>不发事件 / 不落库；业务接入后 FOLLOWUP_CREATED / REPORT_GENERATED"]
-    DISPATCH --> END([END])
+    P["pending 待派发"] --> A["assigned 已派发"]
+    A --> R["running 执行中"]
+    R --> S["success 成功"]
+    R --> F["failed 失败"]
+    R --> W["waiting_human 等待人工<br/>（interrupt 暂停）"]
+    W -->|"resume 人工决策"| R
+    F -->|"retry 重试"| R
 ```
+
+### 路由模式
+
+顶层路由由 `RouteResolver` 承担，三种模式（配置 `AGENT_ROUTE_MODE`）：
+
+| 模式 | 行为 | 适用场景 |
+| --- | --- | --- |
+| `explicit` | 仅按显式 `task_type` 查表，缺失 / 非法即失败 | 调用方明确任务类型（零 LLM 成本） |
+| `llm` | 忽略显式值，一律由 LLM 从已注册候选中选择 | 纯自然语言任务描述 |
+| `hybrid` | 显式优先命中（零成本），为空 / 未注册时交 LLM 兜底 | 默认（缺省值） |
+
+### 接入一个新的业务 Agent
+
+新增业务 Agent 四步即可纳入编排，无需改动顶层图：
+
+1. **定义类型**：在 `src/constants/enums.py` 的 `AgentType` 中新增枚举成员（或复用现有分类 `content` / `customer_service` / `security` / `data_analysis` / `data_monitor`）；
+2. **实现子图**：继承 `src/agents/base.py` 的 `BaseAgent`，实现 `agent_type / name / description / build()`，`build()` 内用 LangGraph `StateGraph` 构建并 `compile` 业务子图（节点内可用 LangChain 组装 LLM / 工具）；
+3. **注册**：`agent_registry.register(AgentSpec(agent=YourAgent(), routing_hint="..."))`——注册后自动进入 `/agents/specs` 列表与 LLM 路由候选；
+4. **提交任务**：经 `POST /api/admin/v1/tasks` 提交（显式 `task_type` 或留空交 LLM 动态路由），任务生命周期 / 人工接管 / 事件审计开箱即用。
+
+> 若业务 Agent 需要外部能力（查库 / 检索 / 通知 / 审批写），在 `src/agents/tools/` 下按 `ToolRegistry` 风格注册工具，并遵循三级权限约束。
 
 ### 关键技术组件说明
 
 | 组件 | 职责 | 实现要点 |
 | --- | --- | --- |
 | 顶层编排图 | 派活链路、子图生命周期、结果聚合 | LangGraph `StateGraph`；编译子图直接注册为节点；条件边动态路由 |
-| Agent 注册表 | 「派给谁」的静态映射 | `task_type → AgentSpec` 映射表；子图惰性编译 + 缓存 |
-| Agent 运行时 | 执行与恢复 | `checkpointer`（memory/redis）；`Command(resume=...)` 断点续跑 |
-| 工具注册中心 | Agent 外部能力 + 权限 | 三级权限：只读 / 审批写 / 执行写；权限不足抛授权异常 |
-| 事件总线 | Agent 间协作消息通道（已接入双写） | 编排事件「落库留痕 + publish 广播」；`InMemoryEventBus`（骨架）/ `RedisStreamEventBus`（生产预留） |
-| RAG 检索 | 政策 / FAQ 知识底座 | 骨架为 mock 命中；二期接向量库，回复带来源溯源 |
-
-## 🛠️ 技术栈
-
-| 分类 | 选型 |
-| --- | --- |
-| 开发语言 | Python 3.11+ |
-| Web 框架 | FastAPI 0.115+ / Uvicorn |
-| Agent 编排 | LangGraph 0.2+（顶层编排图 + 业务子图嵌套） |
-| LLM 接入 | LangChain（langchain-core / langchain-openai，OpenAI 兼容协议） |
-| 数据存储 | MySQL 8.0（SQLAlchemy 2 + PyMySQL，Alembic 迁移） |
-| 缓存 | Redis 5.0+（可选；骨架默认内存实现） |
-| 消息/事件 | 内存事件总线（骨架，事件双写：落库 + publish）/ Redis Stream（生产预留） |
-| 配置 | dataclass + PyYAML + python-dotenv |
-| 日志 | loguru（文件恒 JSON，request_id 注入） |
-| 定时任务 | APScheduler（AsyncIOScheduler） |
-| 包管理 | uv（pyproject.toml + uv.lock） |
-| 部署运维 | Docker / docker-compose |
+| Agent 注册表 | 「派给谁」的路由 | `task_type → AgentSpec` 映射；子图惰性编译 + 缓存；`list_routing_options` 供 LLM 候选 |
+| Agent 运行时 | 执行与恢复 | `checkpointer`（memory/redis）；`Command(resume=...)` 断点续跑；interrupt 识别与 waiting_human 归一化 |
+| 工具注册中心 | Agent 外部能力 + 权限（待业务注册） | 三级权限：只读 / 审批写 / 执行写；权限不足抛授权异常 |
+| 事件总线 | Agent 协作消息通道（已接入双写） | 编排事件「落库留痕 + publish 广播」；`InMemoryEventBus`（骨架）/ `RedisStreamEventBus`（生产预留） |
+| RAG 知识底座 | 政企政策 / FAQ 知识检索（预留） | 二期接向量库（Milvus / pgvector），回复带来源溯源 |
 
 ## 📖 API 文档说明
 
@@ -373,21 +321,14 @@ flowchart LR
 | GET | `/health` | 健康探针（含 db / redis / agent_runtime 依赖状态） |
 | GET | `/version` | 应用版本信息 |
 | POST | `/auth/login` | 登录（预留：二期 JWT + RBAC） |
-| GET | `/agents` | Agent 注册表列表 |
-| POST | `/tasks` | 提交 Agent 任务（task_type + payload） |
+| POST | `/auth/refresh` | 令牌刷新（预留） |
+| GET | `/agents/specs` | Agent 注册表列表（类型 / 名称 / 描述 / 启用状态） |
+| POST | `/tasks` | 提交 Agent 任务（task_type 显式指定或留空交 LLM 动态路由） |
 | GET | `/tasks` | 任务列表（status / task_type 过滤，分页） |
 | GET | `/tasks/{task_id}` | 任务详情 |
 | POST | `/tasks/{task_id}/resume` | 人工接管恢复（interrupt/resume） |
 | GET | `/events` | 协作事件列表（审计） |
 | GET | `/events/{event_id}` | 协作事件详情（完整 payload） |
-| POST | `/chat/send` | 发送客户咨询消息（business_chat，命中人工关键词转 waiting_human） |
-| POST | `/chat/{task_id}/human-reply` | 人工接管回复（resume 续跑） |
-| POST | `/monitoring/scan` | 手动触发数据监控巡检 |
-| GET | `/monitoring/alerts` | 告警事件列表 |
-| POST | `/customers/run` | 提交客户管理 Agent 任务（跟进到期巡检/指定客户/全量/报表任务，演示链路） |
-| GET | `/customers/{customer_id}/followups` | 客户跟进任务列表（客户管理 Agent 产出，可审计） |
-| POST | `/customers/reports/trigger` | 手动触发客户报表（ReportService，不经子图） |
-| GET | `/customers/reports` | 客户报表列表 |
 
 **权限控制**：当前为骨架阶段，鉴权 / 限流 / 熔断 / 请求 ID 均已预留实现（`src/core/middleware.py`）但默认未启用；二期接入 JWT + RBAC 后，管理后台接口需携带 `Authorization` 头访问。
 
@@ -399,9 +340,6 @@ flowchart LR
 | --- | --- | --- |
 | `agent_tasks` | Agent 任务表（状态机 / 重试 / 线程 ID） | `task_type`、`status`、`thread_id`、`retry_count`、`approval_no`、`result(JSON)` |
 | `agent_events` | 协作事件表（审计留痕） | `event_type`、`source_agent`、`payload(JSON)` |
-| `customers` | 客户表（客户管理 Agent 的状态数据源） | `customer_id`、`status`、`next_followup_at`、`last_followup_at` |
-| `customer_followups` | 跟进记录表（Agent 产出的跟进任务落库） | `customer_id`、`action`、`content`、`next_followup_at` |
-| `customer_reports` | 报表产物表（自动出报表落库） | `report_type`、`customer_id`、`period_start/end`、`content(JSON)` |
 
 配置：`DATABASE_HOST / PORT / USER / PASSWORD / DATABASE`；`DATABASE_ENABLED=true` 时应用启动（lifespan）自动检测缺失表并创建（幂等，表已齐备则跳过；连接失败不阻断启动，DB 接口返回 503 提示）。如需手动建表：`uv run python -c "from src.infras.database import init_database; init_database()"`。
 
@@ -413,6 +351,23 @@ flowchart LR
 
 - 日志文件：`server/logs/x-BeiChen-{time}.log`（loguru 写入，恒为 JSON 格式，自动轮转/压缩）；
 - 配置读取：`server/config.yaml`（或 `config.{env}.yaml`，如 `config.production.yaml`）。
+
+## 🛠️ 技术栈
+
+| 分类 | 选型 |
+| --- | --- |
+| 开发语言 | Python 3.11+ |
+| Web 框架 | FastAPI 0.115+ / Uvicorn |
+| Agent 编排 | LangGraph 1.2+（顶层编排图 + 业务子图嵌套，interrupt/resume 断点续跑） |
+| LLM 接入 | LangChain（langchain-core / langchain-openai，OpenAI 兼容协议） |
+| 数据存储 | MySQL 8.0（SQLAlchemy 2 + PyMySQL，Alembic 迁移） |
+| 缓存 | Redis 5.0+（可选；骨架默认内存实现） |
+| 消息/事件 | 内存事件总线（骨架，事件双写：落库 + publish）/ Redis Stream（生产预留） |
+| 配置 | dataclass + PyYAML + python-dotenv |
+| 日志 | loguru（文件恒 JSON，request_id 注入） |
+| 定时任务 | APScheduler（AsyncIOScheduler，通用调度器） |
+| 包管理 | uv（pyproject.toml + uv.lock） |
+| 部署运维 | Docker / docker-compose |
 
 ## 📜 许可证
 

@@ -157,12 +157,12 @@ class AgentConfig:
 
 @dataclass
 class ApprovalConfig:
-    """审批闸门配置（广告审批系统对接，预留）。
-    资金类写操作一律经广告审批后由执行器执行，Agent 不直接调用。
+    """审批闸门配置（审批服务对接，预留）。
+    资金类写操作一律经审批后由执行器执行，Agent 不直接调用。
     """
 
     enabled: bool = True
-    base_url: str = "http://approval-service:8080"  # 广告审批服务地址
+    base_url: str = "http://approval-service:8080"  # 审批服务地址
     api_prefix: str = "/api/v1"
     timeout_seconds: int = 10
     service_token: str = ""  # 服务间鉴权令牌（预留）

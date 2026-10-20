@@ -1,14 +1,13 @@
 #!/usr/bin/env python3
 """工具注册中心（北辰 x-BeiChen）。
 
-工具 = Agent 可调用的外部能力（广告平台 / RAG / 通知）。
-权限模型（三级，对齐 ToolPermissionLevel）：
-    - read           只读：Agent 可直接调用
-    - approval_write 审批写：Agent 只能创建审批单（返回 approval_no），审批通过后由执行器执行
-    - exec_write     执行写：仅审批执行器可调用，不注册给 Agent
+工具 = Agent 可调用的外部能力（如知识检索 / 数据查询 / 通知）。
+权限模型（对齐 ToolPermissionLevel）：
+    - read   只读：Agent 可直接调用
+    - write  写：不注册给 Agent，由人工/外部执行器执行
 
-调用约定：Agent 节点通过 tool_registry.invoke(name, permission, **kwargs) 调用，
-权限不足时抛 AuthorizationException（应转审批流程而非降级静默）。
+调用约定：Agent 节点通过 tool_registry.invoke(name, **kwargs) 调用，
+只读工具直接执行；写工具抛 AuthorizationException（不降级静默）。
 """
 
 from __future__ import annotations
@@ -48,10 +47,10 @@ class ToolRegistry:
         return self._tools.get(name)
 
     def invoke(self, name: str, **kwargs: Any) -> Any:
-        """调用工具（仅支持只读工具，写工具走审批流程）。
+        """调用工具（仅支持只读工具，写工具由人工/外部执行器执行）。
 
         Args:
-            name: 工具名（如 "ads.get_campaign_stats"）
+            name: 工具名（如 "rag.retrieve"）
             **kwargs: 工具函数的实际参数
 
         Returns:
@@ -59,14 +58,14 @@ class ToolRegistry:
 
         Raises:
             ValueError: 工具不存在或已停用
-            AuthorizationException: 工具为写工具（APPROVAL_WRITE / EXEC_WRITE），Agent 需走审批流程
+            AuthorizationException: 工具为写工具（WRITE），Agent 不允许直接调用
         """
         spec = self.get(name)
         if spec is None or not spec.enabled:
             raise ValueError(f"工具不存在或已停用：{name}")
         if spec.permission_level != ToolPermissionLevel.READ:
             raise AuthorizationException(
-                f"工具 {spec.name} 为写工具（{spec.permission_level}），Agent 需走审批流程"
+                f"工具 {spec.name} 为写工具（{spec.permission_level}），Agent 不允许直接调用"
             )
         logger.info(f"[Tool] invoke {name}")
         return spec.func(**kwargs)

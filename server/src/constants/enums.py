@@ -173,27 +173,20 @@ class TaskStatus(StrBaseEnum):
 
 
 class EventType(StrBaseEnum):
-    """Agent 协作事件类型（事件总线消息体 type 字段）。
+    """Agent 协作事件类型（事件总线消息体 type 字段）。"""
 
-    随固定工作流 Agent 移除的事件（意向 / 告警 / 建议单 / 客户状态 /
-    跟进记录 / 报表生成）已删除；保留编排层通用事件。
-    """
-
-    APPROVAL_PASSED = "approval_passed", "审批通过"
     TASK_FAILED = "task_failed", "任务失败"
 
 
 class ToolPermissionLevel(StrBaseEnum):
-    """工具三级权限（对齐工具注册中心权限校验）。
+    """工具权限（对齐工具注册中心权限校验）。
 
-    read           只读工具，Agent 可直接调用（查询数据 / 检索知识）
-    approval_write 审批写工具，Agent 只能创建审批单，审批通过才执行
-    exec_write     执行写工具，仅审批执行器可调用，不注册给 Agent
+    read   只读工具，Agent 可直接调用（查询数据 / 检索知识）
+    write  写工具，不注册给 Agent，由人工/外部执行器执行
     """
 
     READ = "read", "读"
-    APPROVAL_WRITE = "approval_write", "审批写"
-    EXEC_WRITE = "exec_write", "执行写"
+    WRITE = "write", "写"
 
 
 class AgentRunStatus(StrBaseEnum):

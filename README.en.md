@@ -1,6 +1,6 @@
-# BeiChen x-BeiChen (Agent Orchestration Platform)
+# BeiChen x-BeiChen (Multi-Agent Orchestration Platform)
 
-A multi-agent orchestration platform monorepo for "Ad Alliance Business Automation SaaS + Overseas Marketing Intelligence Platform": `server/` (backend, LangGraph + LangChain orchestration skeleton delivered) and `web/` (frontend: customer touchpoint + admin console, planned).
+A multi-agent orchestration platform monorepo for **government & enterprise customers**: `server/` (backend, LangGraph + LangChain orchestration core delivered) and `web/` (frontend: customer touchpoint + admin console, planned).
 
 [中文](README.md) | English
 
@@ -21,14 +21,13 @@ A multi-agent orchestration platform monorepo for "Ad Alliance Business Automati
 
 ## 💡 Introduction
 
-BeiChen is an agent orchestration platform serving two business directions:
+BeiChen is a multi-agent orchestration platform for government & enterprise customers (e.g., public services, HR & social security, enterprise services), built on **LangGraph + LangChain**:
 
-- **Ad Alliance Business Automation SaaS**: a business-chat agent auto-answers customer inquiries (RAG policy Q&A), a data-monitoring agent patrols campaign data and raises alerts with suggestions, and customer management + task scheduling auto-generates reports;
-- **Overseas Marketing Intelligence Platform**: a content-creation agent generates multilingual copy, a customer-service/conversion agent drives conversions, and an ad-insight agent summarizes creative performance and competitor moves.
+- **Orchestration core**: top-level hub graph (route → subgraph node → aggregate) + Agent registry (explicit / LLM dynamic / hybrid routing) + runtime (checkpointer / invoke / resume with checkpoint-based human takeover);
+- **Plug-in business agents**: every business agent implements `BaseAgent` and registers into the registry — it is then automatically covered by top-level routing, task dispatch, human takeover and event audit, with no changes to the orchestration layer;
+- **Engineering rules**: money-related writes always pass the approval gate, full event traceability (dual-write: persist + publish), and evidence-grounded answers (RAG knowledge base reserved; vector store + source citations in phase 2).
 
-Three engineering rules are enforced: **money operations always pass the approval gate** (approval-write tools + approval ID trail), **full event traceability** (event bus + persistence dual-write), and **evidence-grounded answers** (RAG retrieval with source citations). The phase-1 ad approval system is a separate project; BeiChen integrates with it through the approval gate.
-
-**Current status**: the `server/` backend first skeleton release is delivered (runs locally, orchestration self-check all green); `web/` frontend is planned (customer touchpoint + admin console, plan in [web/README.md](web/README.md)).
+**Current status**: the `server/` orchestration skeleton is delivered and runs standalone; the previous fixed-workflow agents (data monitoring / business chat / customer management) have been removed along with the repositioning — the registry is empty, and new business agents register to extend; the `web/` frontend is planned.
 
 ## 🚀 Quick Start
 
@@ -39,55 +38,53 @@ uv sync
 uv run x-BeiChen     # one-shot start: dev hot-reload on, listens on 8866
 ```
 
-Detailed requirements, configuration (`.env`), startup options and the orchestration self-check: **[server/README.md](server/README.md)**.
+Detailed requirements, configuration (`.env`), startup options, API and extension guide: **[server/README.md](server/README.md)**.
 
 ## 🧭 Frontend Plan (web/)
 
-BeiChen has two frontend applications, neither started yet (detailed plan in **[web/README.md](web/README.md)**):
+BeiChen plans two frontend applications, neither started yet (see `web/README.md`):
 
 | App | Users | Responsibility |
 | --- | --- | --- |
-| Customer touchpoint | Advertisers / customers | IM / Web / App: consultative chat, campaign service interaction |
-| Admin console | Operations / management | Task panel, alert panel, agent registry, event audit |
+| Admin console | Operations / management | Task panel, agent registry, event audit, health monitoring |
+| Gov & enterprise touchpoint | Customers / end users | IM / Web / App: business consultation, service interaction |
 
 ## 📁 Project Structure
 
 ```text
 x-BeiChen/
-├── server/                  # Backend (FastAPI + LangGraph + LangChain, skeleton delivered)
+├── server/                  # Backend (FastAPI + LangGraph + LangChain, orchestration skeleton delivered)
 │   ├── src/                 # Source (strict api → services → repositories flow)
 │   │   ├── api/             # API layer: routers / dependency injection / response wrapper
-│   │   ├── services/        # Business logic: orchestration service / monitoring service
+│   │   ├── services/        # Business logic: Agent task facade
 │   │   ├── repositories/    # Data access: task / event repositories
-│   │   ├── agents/          # Agent orchestration: graph / registry / runtime / subgraphs / tools
+│   │   ├── agents/          # Agent orchestration: graph / registry / runtime / routing / tools
 │   │   ├── models/          # ORM entities (agent_tasks / agent_events)
 │   │   ├── schemas/         # Pydantic request/response models
 │   │   ├── core/            # Config / logging / exceptions / middleware
 │   │   ├── infras/          # Database / cache / event bus / LLM provider
-│   │   ├── scheduling/      # APScheduler periodic patrol
-│   │   ├── constants/       # Enums & constants
-│   │   └── templates/       # Prompt templates
-│   ├── scripts/             # Orchestration self-check script
+│   │   ├── scheduling/      # APScheduler generic scheduler (business jobs TBD)
+│   │   ├── constants/       # Enums & constants (agent orchestration domain)
+│   │   └── templates/       # Prompt templates (routing prompts)
 │   ├── tests/               # Test directory (to be filled with business access)
-│   └── README.md            # Backend detailed docs (quick start / architecture / API)
+│   └── README.md            # Backend detailed docs (quick start / architecture / API / extension)
 ├── web/                     # Frontend (planned, see web/README.md)
-├── docs/                    # Project docs (planned)
 ├── docker-compose.yml       # Container orchestration (placeholder)
 └── LICENSE                  # MIT License
 ```
 
 ## 🏗️ System Architecture
 
-Whole-product view: two frontends + one backend; the phase-1 ad approval system is a separate project connected via the approval gate.
+Whole-product view: two frontends + one backend; the approval service is a phase-2 separate system connected via the approval gate.
 
 ```mermaid
 flowchart TB
     subgraph FE["Frontend (web/, planned)"]
-        A1["Customer touchpoint (IM / Web / App)"]
+        A1["Gov & enterprise touchpoint (IM / Web / App)"]
         A2["Admin console"]
     end
 
-    subgraph BE["BeiChen backend (server/, skeleton delivered)"]
+    subgraph BE["BeiChen backend (server/, orchestration skeleton delivered)"]
         B1["API layer (api/admin/v1)"]
         B2["Service layer (services/)"]
         B3["Agent orchestration (agents/)"]
@@ -102,7 +99,7 @@ flowchart TB
     end
 
     subgraph EXT["External systems"]
-        D1["Ad approval system (phase-1, separate project)"]
+        D1["Approval service (phase-2, separate project)"]
     end
 
     A1 --> B1
@@ -117,16 +114,16 @@ flowchart TB
     B2 -. Approval gate .-> D1
 ```
 
-Agent orchestration core (LangGraph top-level graph with nested business subgraphs):
+Agent orchestration core (LangGraph top-level graph with nested business subgraphs, dynamically mounted from the registry):
 
 ```mermaid
 flowchart LR
-    START --> ROUTE["route (registry routing)"]
-    ROUTE -->|"target_agent=monitor"| SUB1["monitor subgraph<br/>pull → calc → judge"]
-    ROUTE -->|"target_agent=business_chat"| SUB2["business_chat subgraph<br/>intent → retrieve → generate"]
-    SUB1 --> AGG["aggregate"]
-    SUB2 --> AGG
+    START --> ROUTE["route (registry routing)<br/>explicit / llm / hybrid"]
+    ROUTE -->|"registered business agent"| SUB["business subgraph node<br/>(nodes + conditional edges + state machine)"]
+    SUB --> AGG["aggregate"]
     AGG --> END
+    ROUTE -->|"unregistered / routing failed"| FAIL["task failed (error written back)"]
+    FAIL --> END
 ```
 
 ## 🛠️ Tech Stack
@@ -140,20 +137,13 @@ flowchart LR
 | Data storage | MySQL 8.0 (SQLAlchemy 2 + PyMySQL, auto table creation on startup) |
 | Cache | Redis 5.0+ (optional; in-memory by default in skeleton) |
 | Messaging/Events | In-memory event bus (skeleton, dual-write: persist + publish) / Redis Stream (prod reserved) |
-| Scheduling | APScheduler (AsyncIOScheduler) |
+| Scheduling | APScheduler (AsyncIOScheduler, generic scheduler) |
 | Package management | uv (pyproject.toml + uv.lock) |
 | Frontend (planned) | TBD (candidates: Vue 3 / React + Vite, see web/README.md) |
 
 ## 📄 License
 
 [MIT License](LICENSE) © 2026 John Young
-
-## 📚 References
-
-- [Agent System Technical Architecture Design](docs/agent-system-architecture.md)
-- [BeiChen Admin Console Architecture (traditional layered, revised)](docs/admin-architecture.md)
-- [BeiChen Project Overview](docs/project-overview.md)
-- [Task-based Agent Hands-on Tutorial](docs/task-agent-tutorial.md)
 
 ## 📮 Contact
 
