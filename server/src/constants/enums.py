@@ -147,7 +147,7 @@ class AgentType(StrBaseEnum):
     """Agent 类型（业务 Agent 五大分类，mark 同时作为 agent_tasks.task_type 入库值）。"""
 
     CONTENT = "content", "内容创作 Agent"
-    CUSTOMER_SERVICE = "customer_service", "对话（客服）Agent"
+    CUSTOMER_SERVICE = "customer_service", "问答（客服）Agent"
     SECURITY = "security", "安全 Agent"
     DATA_ANALYSIS = "data_analysis", "数据分析 Agent"
     DATA_MONITOR = "data_monitor", "数据监控 Agent"
